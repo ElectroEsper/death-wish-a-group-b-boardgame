@@ -147,6 +147,20 @@ p{margin:0 0 10px;max-width:62ch}
 .scale div em{display:block;font-style:normal;font-weight:600;color:var(--lamp);font-size:12px;margin-top:2px;min-height:14px}
 .scale.w6{grid-template-columns:repeat(6,1fr)}.scale.w4{grid-template-columns:repeat(4,1fr)}
 .tc0 b{color:var(--clear)}.tc2 b,.tc3 b{color:var(--flag)}
+/* Tutorial */
+.tutpic .st{background:var(--road)}.tutpic .st.dark{background:#11161b}
+.tut{position:fixed;inset:0;background:rgba(10,13,16,.78);display:grid;place-items:center;padding:16px;z-index:10}
+.tutbox{background:var(--road);border-radius:18px;max-width:560px;width:100%;max-height:92vh;overflow:auto;padding:22px}
+.tutpic{background:var(--asphalt);border-radius:14px;padding:16px;margin:12px 0 14px;min-height:150px;display:grid;align-content:center;gap:10px}
+.tutnav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
+.dots{display:flex;gap:6px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--kerb)}.dots i.on{background:var(--lamp)}
+.minicards{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.minicards div{border-radius:10px;padding:8px;text-align:center;font:700 16px var(--cond);color:#1b1500}
+.minicards svg{width:40px;height:40px;display:block;margin:0 auto}
+.ladder{display:grid;gap:4px}.ladder div{display:flex;justify-content:space-between;background:var(--road);border-radius:8px;padding:6px 10px;font-size:14px}
+.gripmini{display:grid;grid-template-columns:auto repeat(4,1fr);gap:3px;font-size:13px;text-align:center}
+.gripmini span{background:var(--road);border-radius:6px;padding:4px 2px}
+.g0{color:var(--clear)}.g1{color:var(--lamp)}.g2{color:var(--flag)}
 /* Pace choices */
 .paces{display:grid;gap:8px}
 .pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
@@ -343,13 +357,49 @@ function progress(r,cur){
   return h+'</div><div class="progl"><span>Start</span><span>'+(r.len-done-cur)+' card'+(r.len-done-cur===1?'':'s')+' after this</span><span>Finish</span></div>';
 }
 
+// ---------- Tutorial ----------
+function tutSlides(){
+  const demo=E.createGame('TUTORIAL-DEMO').r;
+  const card=(gi,side,mods,t)=>({gi,side,mods:mods.map(n=>({n})),t});
+  const mc=(c,bg,label,ink='#1b1500')=>'<div style="background:'+bg+';color:'+ink+'">'+tulip(c,ink)+label+'</div>';
+  const pb=(k,n,t,risk)=>'<div class="pace p-'+k+(risk?' risk':'')+'" style="cursor:default"><b>'+n+'</b><small>'+t+'</small></div>';
+  return [
+   {h:'Lose the least time',p:'A rally is a run of stages. Every corner costs you a little time. Lowest total at the finish wins, and on the weekly rally everyone drives the same roads.',
+    pic:'<div class="clock"><b>0</b><span>time lost at the start</span></div><div class="clock"><b style="color:var(--lamp)">197</b><span>a good finish</span></div>'},
+   {h:'Read the pace note',p:'Each card is a corner, drawn like a co-driver\'s roadbook: the more the arrow bends, the tighter the corner. The card\'s colour tells you how dangerous it is.',
+    pic:'<div class="minicards">'+mc(card(9,'R',[]),'#e9e3b8','Easy')+mc(card(5,'L',[]),'var(--lamp)','Tricky')+mc(card(2,'R',[]),'#ff8f1f','Hard')+mc(card(0,'L',[]),'var(--flag)','Brutal','#fff')+'</div><div class="chips"><span class="chip" style="background:var(--kerb)">Jump<small>+2 time, −2 Cour</small></span><span class="chip" style="background:var(--kerb)">Unseen<small>+2 time, −1 Cour</small></span></div><p class="muted" style="margin:0;font-size:14px">Modifiers show their cost: time if you drive Safe, nerve if you push.</p>'},
+   {h:'Choose your pace',p:'Safe costs time but nothing else. Committed is faster but spends Courage and Stamina. Flat Out is fastest and draws a Luck card. Every button shows its cost before you press it.',
+    pic:'<div class="paces">'+pb('safe','Safe','+4 time')+pb('committed','Committed','+1 time · −1 Stam · −2 Cour')+pb('flat','Flat Out','−2 time · −2 Cour · + Luck card')+'</div>'},
+   {h:'Watch your crew',p:'Out of Stamina or Courage and you\'re forced to drive Safe. Out of Luck when you need it and you draw a Death Wish. Rest comes at the end of each stage and at services.',
+    pic:'<div class="gauges" style="margin:0">'+gauge('Stamina',7,10)+gauge('Courage',2,8)+gauge('Luck',1,6)+'</div><div class="ladder"><div><span>Close Shave</span><span class="muted">−2 Courage</span></div><div><span>Could\'ve Been Worse</span><span class="muted">+3 time</span></div><div><span>Terminal Crash</span><span style="color:var(--lamp)">+10 time</span></div><div><span>Dead</span><span style="color:var(--flag)">rally over</span></div></div>'},
+   {h:'Plan your tyres',p:'Stages run on tarmac, gravel or snow, grouped into legs. You only change tyres at a service, so pick for the stages ahead. Wrong tyres cost time on every card.',
+    pic:strip(demo,null)+'<div class="gripmini"><span></span><span>Tarmac dry</span><span>Tarmac wet</span><span>Gravel</span><span>Snow</span><span>Slick</span><span class="g0">Good</span><span class="g2">None</span><span class="g2">None</span><span class="g2">None</span><span>Gravel</span><span class="g1">Poor</span><span class="g1">Poor</span><span class="g0">Good</span><span class="g1">Poor</span></div>'},
+   {h:'Read the sky',p:'Weather can shift one step each stage, and rain wears the track down. Dark stages at dawn or night make jumps, crests and blind corners costlier. Now go drive.',
+    pic:weatherScale({weather:3,track:1},true)}
+  ];
+}
+let tutI=0;
+window.openTut=()=>{tutI=0;drawTut();};
+window.closeTut=()=>{store.set('dw-tut','1');const t=$('tut');if(t)t.remove();if(pendingStart){const f=pendingStart;pendingStart=null;f();}};
+window.tutGo=d=>{tutI+=d;drawTut();};
+function drawTut(){
+  const S=tutSlides(),sl=S[tutI];let t=$('tut');
+  if(!t){t=document.createElement('div');t.id='tut';t.className='tut';t.setAttribute('role','dialog');t.setAttribute('aria-modal','true');t.setAttribute('aria-labelledby','tutH');document.body.appendChild(t);t.onclick=e=>{if(e.target===t)closeTut();};}
+  t.innerHTML='<div class="tutbox"><div class="tutnav"><span class="muted" style="font-size:14px">How to play, '+(tutI+1)+' of '+S.length+'</span><button class="btn" onclick="closeTut()">Skip</button></div><div class="tutpic">'+sl.pic+'</div><h2 id="tutH">'+sl.h+'</h2><p class="muted">'+sl.p+'</p><div class="tutnav"><button class="btn" onclick="tutGo(-1)" '+(tutI?'':'disabled')+'>Back</button><div class="dots">'+S.map((_,i)=>'<i'+(i===tutI?' class="on"':'')+'></i>').join('')+'</div>'+(tutI<S.length-1?'<button class="btn go" id="tutNext" onclick="tutGo(1)">Next</button>':'<button class="btn go" id="tutNext" onclick="closeTut()">Start driving</button>')+'</div></div>';
+  $('tutNext').focus();
+}
+document.addEventListener('keydown',e=>{if(!$('tut'))return;if(e.key==='Escape')closeTut();if(e.key==='ArrowRight'&&tutI<tutSlides().length-1)tutGo(1);if(e.key==='ArrowLeft'&&tutI>0)tutGo(-1);});
+let pendingStart=null;
+// First rally ever: offer the tour before driving.
+function firstTime(f){if(store.get('dw-tut')){f();return;}pendingStart=f;openTut();}
+
 // ---------- Drive ----------
 let G=null,fresh=false;
 const WEEK=E.isoWeek(),WSEED=E.weeklySeed(WEEK);
-window.startWeekly=()=>{G=E.createGame(WSEED);G.ranked=true;G.week=WEEK;fresh=true;render();scrollTo(0,0);};
+window.startWeekly=()=>firstTime(()=>{G=E.createGame(WSEED);G.ranked=true;G.week=WEEK;fresh=true;render();scrollTo(0,0);});
 window.startFree=seed=>{
   if(seed===undefined)seed=($('playSeed')&&$('playSeed').value.trim())||E.randomSeed();
-  G=E.createGame(seed,custom);G.ranked=false;fresh=true;render();scrollTo(0,0);
+  firstTime(()=>{G=E.createGame(seed,custom);G.ranked=false;fresh=true;render();scrollTo(0,0);});
 };
 window.pickT=ty=>{E.chooseTyre(G,ty);fresh=true;render();};
 window.choose=p=>{E.choosePace(G,p);fresh=true;render();};
@@ -367,7 +417,7 @@ function home(){
   h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
   h+='<div><div class="panel"><h3>Standings, '+WEEK+'</h3><div id="miniLb" class="muted">'+(API?'Loading…':'Leaderboard not connected.')+'</div></div>';
   h+='<div class="panel"><h3>Free play</h3><p class="muted">Any seed, with your values from Numbers. Not ranked. The same seed always gives the same rally.</p><div class="row"><input id="playSeed" class="inp" type="text" placeholder="Seed, or leave blank" style="flex:1;min-width:120px" aria-label="Seed"><button class="btn" onclick="startFree()">Start free play</button></div></div>';
-  h+='<div class="panel"><h3>How to drive</h3><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p></div></div></div>';
+  h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p></div></div></div>';
   return h;
 }
 async function loadMini(){
