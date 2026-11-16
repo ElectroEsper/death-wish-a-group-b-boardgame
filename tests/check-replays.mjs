@@ -18,9 +18,9 @@ function drive(seed,event,pattern){
 
 if(update){
   const cases=[];
-  const events=[{},{surface:'snow'},{surface:'within',deck:'rough'},{deck:'mountain'},{surface:'tarmac',deck:'twisty'},{deck:'fast'}];
-  ['FIX-A','FIX-B','FIX-C','FIX-D','FIX-E','FIX-F'].forEach((seed,i)=>{
-    const event=events[i],pattern=['c','sccf','ffcs','cf','scc','f'][i];
+  const events=[{},{rally:'monte'},{rally:'germany'},{surface:'within',deck:'rough'},{deck:'mountain'},{surface:'tarmac',deck:'twisty'},{deck:'fast'}];
+  ['FIX-A','FIX-B','FIX-C','FIX-D','FIX-E','FIX-F','FIX-G'].forEach((seed,i)=>{
+    const event=events[i],pattern=['c','sccf','ffcs','cf','scc','f','ccf'][i];
     const g=drive(seed,event,pattern);
     cases.push({seed,event,moves:g.moves,time:g.r.crew.time,stages:g.r.stageTimes});
   });

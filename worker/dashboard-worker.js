@@ -7,7 +7,7 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // ../engine.js
-var RULES_VERSION = "0.5";
+var RULES_VERSION = "0.6";
 var DEF = {
   stamina: 10,
   courage: 8,
@@ -40,11 +40,13 @@ var DEF = {
   terminalTime: 10,
   deadTime: 4,
   nightLuck: 0,
-  dmgLoose: 2,
-  dmgNoFlat: 4,
-  dmgMax: 6,
+  dmgLoose: 4,
+  dmgNoFlat: 7,
+  dmgMax: 8,
   dmgShortRepair: 2,
-  fixStam: 2
+  fixStam: 2,
+  fixTime: 2,
+  lateTime: 2
 };
 var CFG = { ...DEF };
 var GRADES = ["Acute", "Hairpin", "Square", "1", "2", "3", "4", "5", "6", "Flat"];
@@ -124,7 +126,7 @@ var fpick = /* @__PURE__ */ __name((a) => a[Math.floor(RF() * a.length)], "fpick
 var clamp = /* @__PURE__ */ __name((v, a, b) => Math.max(a, Math.min(b, v)), "clamp");
 var SURF = ["Tarmac", "Gravel", "Snow"];
 var TYRES = ["Slick", "Wet", "Gravel", "Snow"];
-var PROFILES = { single: "Single surface", between: "Mixed between stages", within: "Mixed within stages" };
+var PROFILES = { single: "Single surface", between: "Mixed between stages", within: "Mixed within stages", snowgravel: "Snow and gravel, mixed within stages", montecarlo: "Tarmac with snow, mixed within stages", mostlygravel: "Mostly gravel, some tarmac stages" };
 var GRIP = [[[0, 2], [2, 2], [2, 2]], [[1, 0], [1, 1], [2, 2]], [[1, 1], [0, 0], [1, 1]], [[2, 1], [1, 1], [0, 0]]];
 var grip = /* @__PURE__ */ __name((ty, su, wet) => GRIP[ty][su][wet ? 1 : 0], "grip");
 var isWet = /* @__PURE__ */ __name((w) => w >= 3, "isWet");
@@ -138,13 +140,27 @@ var DECKS = {
   rough: { name: "Rough roads", grades: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4], straights: 8, extra: ["Bump", "Dip", "Water Splash", "Jump", "Bump", "Dip"], blanks: 8 },
   twisty: { name: "Twisty tarmac", grades: [2, 3, 3, 7, 7, 7, 5, 3, 1, 1], straights: 2, extra: ["Tightens", "Narrow", "Don't Cut", "Opens", "Caution"], blanks: 16 }
 };
-function deckFor(theme) {
+var RALLIES = {
+  canada: { name: "Canada", place: "Charlevoix, Qu\xE9bec", surface: "snowgravel", deck: "fast", wx: [0.25, 0.4, 0.35], start: [1, 4], night: "common", cards: 0, special: "thaw", rule: "Thaw: at each stage start, on a 6 one snow half of the stage turns to gravel." },
+  finland: { name: "Finland", place: "1000 Lakes", surface: "gravel", deck: "fast", extra: ["Jump"], wx: [1 / 3, 1 / 3, 1 / 3], start: [0, 3], night: "rare", cards: 0, special: "bigair", rule: "Big air: Jumps taken Flat Out save 1 extra time." },
+  sweden: { name: "Sweden", place: "V\xE4rmland", surface: "snow", deck: "fast", wx: [0.3, 0.45, 0.25], start: [0, 2], night: "common", cards: 0, special: "snowbank", rule: "Snowbanks: a Bad Luck card costs +1 time instead of +1 Damage." },
+  monte: { name: "Monte Carlo", place: "Monaco and the Alps", surface: "montecarlo", deck: "mountain", wx: [0.3, 0.25, 0.45], start: [1, 5], night: "very", cards: 0, special: "ice", rule: "Ice notes: one card per stage is sheet ice, no grip unless on Snow tyres." },
+  germany: { name: "Germany", place: "Mosel vineyards", surface: "tarmac", deck: "twisty", wx: [0.25, 0.4, 0.35], start: [2, 4], night: "rare", cards: 0, special: "panzer", rule: "Panzerplatte: one stage per leg runs on the army ranges and uses the Rough deck." },
+  corsica: { name: "Corsica", place: "Tour de Corse", surface: "tarmac", deck: "twisty", wx: [0.4, 0.4, 0.2], start: [0, 2], night: "rare", cards: 2, special: "", rule: "10,000 corners: every stage has 2 extra cards." },
+  portugal: { name: "Portugal", place: "Sintra and Arganil", surface: "mostlygravel", deck: "", wx: [1 / 3, 1 / 3, 1 / 3], start: [1, 3], night: "normal", cards: 0, special: "crowds", rule: "Crowds: Unseen costs 1 extra Courage at Flat Out." },
+  acropolis: { name: "Greece", place: "Acropolis", surface: "gravel", deck: "rough", wx: [0.4, 0.45, 0.15], start: [0, 1], night: "rare", cards: 0, special: "heat", rule: "Heat: the crew loses 1 extra Stamina at every stage end." },
+  safari: { name: "Kenya", place: "Safari", surface: "gravel", deck: "rough", extra: ["Water Splash"], wx: [0.3, 0.3, 0.4], start: [0, 3], night: "common", cards: 3, special: "safari", rule: "Long stages: every stage has 3 extra cards, and short services repair 3 Damage." },
+  rac: { name: "Britain", place: "RAC forests", surface: "gravel", deck: "", wx: [0.25, 0.35, 0.4], start: [2, 5], night: "very", cards: 0, special: "forest", rule: "Forest night: on dark stages Narrow and Caution also cost 1 more." },
+  newzealand: { name: "New Zealand", place: "North Island", surface: "gravel", deck: "fast", extra: ["Long"], wx: [1 / 3, 1 / 3, 1 / 3], start: [0, 4], night: "normal", cards: 0, special: "", rule: "Flowing roads: Long turns up twice as often." }
+};
+var RALLY = null;
+function deckFor(theme, more) {
   const d = DECKS[theme] || DECKS[""], track = [], mods = [...MODS, ...MODS];
   d.grades.forEach((n, gi) => {
     for (let k = 0; k < n; k++) track.push({ gi });
   });
   for (let k = 0; k < d.straights; k++) track.push({ gi: -1 });
-  d.extra.forEach((nm) => {
+  d.extra.concat(more || []).forEach((nm) => {
     const m = MODS.find((x) => x.n === nm);
     if (m) {
       mods.push(m, m);
@@ -167,18 +183,35 @@ function newRally() {
     s += n;
     if (L < legs - 1) svc[s - 1] = "long";
   }
+  const nm = RALLY ? RALLY.night : "normal";
   if (CFG.nightOn) legSpan.forEach(([a, b]) => {
     const d = rnd(6);
-    if (d <= 2) night[a] = "dawn";
-    else if (d === 5) night[b] = "night";
-    else if (d === 6) {
-      night[b] = "night";
-      if (b - 1 > a) night[b - 1] = "night";
+    if (nm === "rare") {
+      if (d === 6) night[b] = "night";
+    } else if (nm === "common") {
+      if (d <= 2) night[a] = "dawn";
+      else if (d >= 4) {
+        night[b] = "night";
+        if (d === 6 && b - 1 > a) night[b - 1] = "night";
+      }
+    } else if (nm === "very") {
+      if (d <= 3) night[a] = "dawn";
+      if (d >= 3) {
+        night[b] = "night";
+        if (d >= 5 && b - 1 > a) night[b - 1] = "night";
+      }
+    } else {
+      if (d <= 2) night[a] = "dawn";
+      else if (d === 5) night[b] = "night";
+      else if (d === 6) {
+        night[b] = "night";
+        if (b - 1 > a) night[b - 1] = "night";
+      }
     }
   });
   const pd = rnd(6), th = THEME;
-  const profile = ["tarmac", "gravel", "snow"].includes(th) ? "single" : th === "between" || th === "within" ? th : pd <= 2 ? "single" : pd <= 4 ? "between" : "within";
-  const gt = /* @__PURE__ */ __name(() => rnd(6) <= 3 ? 1 : 0, "gt"), surf = [];
+  const profile = ["tarmac", "gravel", "snow"].includes(th) ? "single" : th === "between" || th === "mostlygravel" ? "between" : th === "within" || th === "snowgravel" || th === "montecarlo" ? "within" : pd <= 2 ? "single" : pd <= 4 ? "between" : "within";
+  const gt = th === "mostlygravel" ? () => rnd(6) <= 4 ? 1 : 0 : th === "snowgravel" ? () => rnd(6) <= 3 ? 2 : 1 : th === "montecarlo" ? () => rnd(6) <= 4 ? 0 : 2 : () => rnd(6) <= 3 ? 1 : 0, surf = [];
   if (profile === "single") {
     const d = rnd(6), su = th === "tarmac" ? 0 : th === "gravel" ? 1 : th === "snow" ? 2 : d <= 3 ? 1 : d <= 5 ? 0 : 2;
     for (let k = 0; k < stages; k++) surf.push([su, su]);
@@ -188,11 +221,17 @@ function newRally() {
       surf.push([su, su]);
     }
   } else {
+    const other = /* @__PURE__ */ __name((a) => th === "snowgravel" ? a === 2 ? 1 : 2 : th === "montecarlo" ? a === 0 ? 2 : 0 : 1 - a, "other");
     for (let k = 0; k < stages; k++) {
       const a = gt();
-      surf.push([a, rnd(6) >= 4 ? 1 - a : a]);
+      surf.push([a, rnd(6) >= 4 ? other(a) : a]);
     }
   }
+  const rough = {};
+  if (RALLY && RALLY.special === "panzer") legSpan.forEach(([a, b]) => {
+    rough[a + rnd(b - a + 1) - 1] = true;
+  });
+  const st = RALLY ? RALLY.start : [0, 5];
   return {
     stages,
     legs,
@@ -201,8 +240,10 @@ function newRally() {
     night,
     profile,
     surf,
+    rough,
+    rally: RALLY,
     stage: 0,
-    weather: rnd(6) - 1,
+    weather: st[0] + rnd(st[1] - st[0] + 1) - 1,
     track: rnd(4) - 1,
     left: 0,
     len: 0,
@@ -215,9 +256,16 @@ function startStage(r) {
   r.stage++;
   const L = [];
   if (r.stage > 1) {
-    const d = rnd(6), w0 = r.weather;
-    if (d <= 2) r.weather = Math.max(0, r.weather - 1);
-    else if (d >= 5) r.weather = Math.min(5, r.weather + 1);
+    const w0 = r.weather;
+    if (r.rally) {
+      const x = RT(), b = r.rally.wx;
+      if (x < b[0]) r.weather = Math.max(0, w0 - 1);
+      else if (x >= b[0] + b[1]) r.weather = Math.min(5, w0 + 1);
+    } else {
+      const d = rnd(6);
+      if (d <= 2) r.weather = Math.max(0, r.weather - 1);
+      else if (d >= 5) r.weather = Math.min(5, r.weather + 1);
+    }
     if (w0 !== r.weather) L.push("Weather: " + WEATHER[w0] + " \u2192 " + WEATHER[r.weather]);
     const t0 = r.track, d2 = rnd(6), w = r.weather;
     let ch = 0;
@@ -230,19 +278,29 @@ function startStage(r) {
     r.track = clamp(r.track + ch, 0, 3);
     if (t0 !== r.track) L.push("Track: " + TRACKC[t0] + " \u2192 " + TRACKC[r.track]);
   }
-  r.len = r.left = rnd(6) + 4;
+  r.len = r.left = rnd(6) + 4 + (r.rally ? r.rally.cards : 0);
   const c = r.crew;
   c.stageTime = 0;
   c.flat = false;
   c.terminal = false;
+  c.gripHit = false;
+  r.ice = r.rally && r.rally.special === "ice" ? rnd(r.len) - 1 : -1;
+  if (r.rally && r.rally.special === "thaw") {
+    const sp = r.surf[r.stage - 1], h = sp.indexOf(2);
+    if (h >= 0 && rnd(6) === 6) {
+      sp[h] = 1;
+      L.push("Thaw: part of this stage has turned to gravel");
+    }
+  }
   return L;
 }
 __name(startStage, "startStage");
 function drawCard(r) {
-  const c = { ...pick(r.deck ? r.deck.track : TRACK) };
+  const dk = r.rough[r.stage] ? r.roughDeck : r.deck;
+  const c = { ...pick(dk ? dk.track : TRACK) };
   c.side = RT() < 0.5 ? "L" : "R";
   c.mods = [];
-  const m = pick(r.deck ? r.deck.mods : MODDECK);
+  const m = pick(dk ? dk.mods : MODDECK);
   if (m) c.mods.push(m);
   if (r.track === 3) c.mods.push(pick(MODS));
   return c;
@@ -251,6 +309,9 @@ __name(drawCard, "drawCard");
 function drawEvent(r) {
   const cards = [drawCard(r)];
   if (r.left >= 2 && rnd(6) >= CFG.intoMin) cards.push(drawCard(r));
+  cards.forEach((cd, i) => {
+    if (r.len - r.left + i === r.ice) cd.ice = true;
+  });
   return cards;
 }
 __name(drawEvent, "drawEvent");
@@ -323,7 +384,7 @@ function applyEvent(r, cards, pace, dry) {
     let t = CFG["base_" + p];
     if (fat) t += 1;
     if (c.dmg >= CFG.dmgLoose) t += 1;
-    const sp = r.surf[r.stage - 1] || [1, 1], su = r.left - i > r.len / 2 ? sp[0] : sp[1], gr = grip(c.tyre, su, isWet(r.weather));
+    const sp = r.surf[r.stage - 1] || [1, 1], su = r.left - i > r.len / 2 ? sp[0] : sp[1], gr = card.ice && c.tyre !== 3 ? 2 : grip(c.tyre, su, isWet(r.weather));
     t += gr;
     let gs = 0, up = 0;
     card.mods.forEach((m) => {
@@ -336,13 +397,15 @@ function applyEvent(r, cards, pace, dry) {
     let co = 0, lu = 0, s2 = 0;
     card.mods.forEach((m) => {
       const dk = m.dark && r.night[r.stage];
+      const sp2 = r.rally ? r.rally.special : "", dk2 = dk || sp2 === "forest" && r.night[r.stage] && (m.n === "Narrow" || m.n === "Caution");
       if (p === "safe") {
-        t += m.t + (dk ? 1 : 0);
+        t += m.t + (dk2 ? 1 : 0);
         if (r.track === 1 && m.rough) t += 1;
       } else {
-        co += (m.c || 0) + (dk ? 1 : 0);
+        co += (m.c || 0) + (dk2 ? 1 : 0) + (sp2 === "crowds" && p === "flat" && m.n === "Unseen" ? 1 : 0);
         lu += m.l || 0;
         s2 += m.s || 0;
+        if (sp2 === "bigair" && p === "flat" && m.n === "Jump") t -= 1;
       }
     });
     if (p !== "safe" && r.track >= 2) co += 1;
@@ -364,7 +427,11 @@ function applyEvent(r, cards, pace, dry) {
       }
     }
     let luckTxt = "", hit = 0;
-    if (p === "flat" && r.track >= 2 && card.mods.some((m) => m.rough) && !dry) hit += 1;
+    if (!dry && p !== "safe" && card.mods.some((m) => m.rough) && frnd(6) <= (p === "flat" ? 2 : 1) + (r.track >= 2 ? 1 : 0)) hit += 1;
+    if (!dry && p !== "safe" && gr === 2 && !c.gripHit) {
+      c.gripHit = true;
+      hit += 1;
+    }
     const hazard = card.mods.some((m) => m.rough || m.blind);
     const comDraw = p === "committed" && CFG.comRisk > 0 && hazard && !dry && frnd(6) <= CFG.comRisk;
     if (p === "flat" || comDraw) {
@@ -375,8 +442,11 @@ function applyEvent(r, cards, pace, dry) {
         if (c.lu >= lcost) {
           c.lu -= lcost;
           t += lc.v;
-          luckTxt = " \xB7 Luck card (" + lcost + "): " + (lc.k === "good" ? "Good, " + lc.v + " time" : lc.k === "bad" ? "Bad, +" + lc.v + " time, +1 Damage" : "Average");
-          if (lc.k === "bad") hit += 1;
+          luckTxt = " \xB7 Luck card (" + lcost + "): " + (lc.k === "good" ? "Good, " + lc.v + " time" : lc.k === "bad" ? "Bad, +" + lc.v + " time" + (r.rally && r.rally.special === "snowbank" ? ", +1 more in a snowbank" : ", +1 Damage") : "Average");
+          if (lc.k === "bad") {
+            if (r.rally && r.rally.special === "snowbank") t += 1;
+            else hit += 1;
+          }
         } else {
           luckTxt = " \xB7 Luck card needs " + lcost + ": RAN OUT OF LUCK";
           c.luckOut++;
@@ -391,7 +461,7 @@ function applyEvent(r, cards, pace, dry) {
       if (lu) parts.push("\u2212" + lu + " Luck");
       L.push({ t: parts.join(" \xB7 ") + luckTxt, k: luckTxt.includes("Good") ? "good" : luckTxt.includes("Bad") || luckTxt.includes("RAN") ? "bad" : "" });
       if (hit) {
-        if (!luckTxt.includes("Bad")) L.push({ t: "Hit hard on a rough track: +" + hit + " Damage", k: "bad" });
+        L.push({ t: "Car damaged: +" + hit + " Damage", k: "bad" });
         addDmg(c, hit, L);
       }
       if (dw && !c.retired) t += deathWish(c, L);
@@ -408,6 +478,10 @@ __name(applyEvent, "applyEvent");
 function endStage(r) {
   const c = r.crew, L = [];
   if (!c.dead && !c.retired) {
+    if (r.rally && r.rally.special === "heat") {
+      c.st = Math.max(0, c.st - 1);
+      L.push("Heat: \u22121 Stamina");
+    }
     if (r.night[r.stage]) {
       c.st = Math.max(0, c.st - 1);
       L.push((r.night[r.stage] === "dawn" ? "Dawn" : "Night") + " stage upkeep: \u22121 Stamina");
@@ -438,7 +512,7 @@ function endStage(r) {
     } else if (sv === "short" && r.stage < r.stages) {
       c.st = CFG.stamina;
       c.co = Math.min(CFG.courage, c.co + CFG.serviceCo);
-      const fx = Math.min(c.dmg, CFG.dmgShortRepair);
+      const fx = Math.min(c.dmg, CFG.dmgShortRepair + (r.rally && r.rally.special === "safari" ? 1 : 0));
       c.dmg -= fx;
       L.push("SERVICE: Stamina restored, +" + CFG.serviceCo + " Courage" + (fx ? ", " + fx + " Damage repaired" : ""));
     }
@@ -449,17 +523,24 @@ function endStage(r) {
   return L;
 }
 __name(endStage, "endStage");
+var atService = /* @__PURE__ */ __name((r) => r.svc[r.stage] === "short", "atService");
+function fixCost(r) {
+  return atService(r) ? { st: 0, t: CFG.lateTime, where: "service" } : { st: CFG.fixStam, t: CFG.fixTime, where: "roadside" };
+}
+__name(fixCost, "fixCost");
 function canFix(r) {
-  const c = r.crew;
-  return !isOut(c) && c.dmg > 0 && c.st >= CFG.fixStam && r.stage < r.stages;
+  const c = r.crew, f = fixCost(r);
+  return !isOut(c) && c.dmg > 0 && c.st >= f.st && r.stage < r.stages && r.stage > 0;
 }
 __name(canFix, "canFix");
 function roadsideFix(r, L) {
-  const c = r.crew;
-  c.st -= CFG.fixStam;
+  const c = r.crew, f = fixCost(r);
+  c.st -= f.st;
   c.dmg -= 1;
   c.fixes++;
-  L.push({ t: "Roadside fix: \u2212" + CFG.fixStam + " Stamina, \u22121 Damage", k: "good" });
+  c.time += f.t;
+  r.stageTimes[r.stage - 1] += f.t;
+  L.push({ t: (f.where === "service" ? "Extra service work: +" + f.t + " time" : "Roadside fix: \u2212" + f.st + " Stamina, +" + f.t + " time") + ", \u22121 Damage", k: "good" });
 }
 __name(roadsideFix, "roadsideFix");
 function isoWeek(d = /* @__PURE__ */ new Date()) {
@@ -494,13 +575,16 @@ function createGame(seed, cfg, event) {
   g.deckCfg = g.cfg;
   RT = g.rt;
   RF = g.rf;
-  THEME = event && THEMES[event.surface] !== void 0 ? event.surface || "" : "";
-  DECK = event && DECKS[event.deck] ? event.deck : "";
+  RALLY = event && RALLIES[event.rally] || null;
+  THEME = RALLY ? RALLY.surface : event && THEMES[event.surface] !== void 0 ? event.surface || "" : "";
+  DECK = RALLY ? RALLY.deck : event && DECKS[event.deck] ? event.deck : "";
   g.r = newRally();
   THEME = "";
-  if (DECK) g.r.deck = deckFor(DECK);
+  if (DECK || RALLY && RALLY.extra) g.r.deck = deckFor(DECK, RALLY && RALLY.extra);
+  g.r.roughDeck = deckFor("rough");
   g.r.deckName = DECKS[DECK].name;
   DECK = "";
+  RALLY = null;
   g.log.push({ t: "Seed " + seed + " \xB7 " + g.r.stages + " stages in " + g.r.legs + " legs \xB7 " + PROFILES[g.r.profile] + " \xB7 " + WEATHER[g.r.weather] + " \xB7 " + TRACKC[g.r.track], k: "hd" });
   return g;
 }
@@ -598,7 +682,7 @@ var MAX_ENTRIES = 500;
 var NAME_RE = /^[\p{L}\p{N} _.\-]{2,20}$/u;
 async function getEvent(env, week) {
   const e = await env.LB.get("event:" + week, "json") || {};
-  return { week, name: e.name || "", seed: e.seed || weeklySeed(week), surface: e.surface || "", deck: e.deck || "", custom: !!e.seed, version: RULES_VERSION };
+  return { week, name: e.name || "", seed: e.seed || weeklySeed(week), surface: e.surface || "", deck: e.deck || "", rally: e.rally || "", custom: !!e.seed, version: RULES_VERSION };
 }
 __name(getEvent, "getEvent");
 async function clearWeek(env, week) {
@@ -641,11 +725,12 @@ async function admin(req, url, env) {
     return json(env, { ok: true, entries: list });
   }
   if (path === "/event") {
-    const name = String(b.name || "").slice(0, 60), seed = String(b.seed || "").trim().slice(0, 60), surface = String(b.surface || ""), deck = String(b.deck || "");
+    const name = String(b.name || "").slice(0, 60), seed = String(b.seed || "").trim().slice(0, 60), surface = String(b.surface || ""), deck = String(b.deck || ""), rally = String(b.rally || "");
+    if (rally && !RALLIES[rally]) return json(env, { error: "Unknown country" }, 400);
     if (!DECKS[deck]) return json(env, { error: "Unknown corner deck" }, 400);
     if (THEMES[surface] === void 0) return json(env, { error: "Unknown surface theme" }, 400);
     if (seed && !/^[\w\-#.:]+$/.test(seed)) return json(env, { error: "Seeds can use letters, numbers and - _ # . :" }, 400);
-    await env.LB.put("event:" + week, JSON.stringify({ name, seed, surface, deck, at: Date.now() }));
+    await env.LB.put("event:" + week, JSON.stringify({ name, seed, surface, deck, rally, at: Date.now() }));
     if (b.clear !== false) await clearWeek(env, week);
     return json(env, { ok: true, event: await getEvent(env, week) });
   }

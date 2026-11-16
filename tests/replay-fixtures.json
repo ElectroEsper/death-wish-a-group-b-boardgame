@@ -1,5 +1,5 @@
 {
- "version": "0.5",
+ "version": "0.6",
  "cases": [
   {
    "seed": "FIX-A",
@@ -20,96 +20,118 @@
   {
    "seed": "FIX-B",
    "event": {
-    "surface": "snow"
+    "rally": "monte"
    },
-   "moves": "1cfsccfscfscc3sccfccfsccf0ccfsccsccscc",
-   "time": 228,
+   "moves": "1cfscrsccfscc3sccfccfsccf0ccfsrfscfsccfsc",
+   "time": 181,
    "stages": [
-    46,
-    22,
-    7,
-    30,
-    57,
-    32,
-    34
+    17,
+    39,
+    1,
+    16,
+    19,
+    17,
+    72
    ]
   },
   {
    "seed": "FIX-C",
    "event": {
-    "surface": "within",
-    "deck": "rough"
+    "rally": "germany"
    },
-   "moves": "1csfcsffcsf1csffcrfcsff2sffcsfcsf1csffcsf20",
-   "time": 292,
+   "moves": "1csffcsfcsffcs0fcsffrffcsf1csf202",
+   "time": 285,
    "stages": [
-    15,
-    37,
-    4,
-    15,
-    12,
-    23,
+    1,
     24,
-    42,
+    22,
+    25,
+    5,
     32,
-    20,
+    36,
+    24,
     28,
-    40
+    32,
+    28,
+    28
    ]
   },
   {
    "seed": "FIX-D",
    "event": {
-    "deck": "mountain"
+    "surface": "within",
+    "deck": "rough"
    },
-   "moves": "1cfcffcfcfcfcf0fcfrcfcfcf0fcfccfcfcffcfcf",
-   "time": 251,
+   "moves": "1cfcfcfrcfcfcfc1cfcfcffcfcf2fcfcfcfccfcfccfc",
+   "time": 187,
    "stages": [
-    7,
-    68,
-    14,
-    58,
-    16,
-    54,
-    34
+    25,
+    34,
+    28,
+    28,
+    33,
+    23,
+    16
    ]
   },
   {
    "seed": "FIX-E",
    "event": {
-    "surface": "tarmac",
-    "deck": "twisty"
+    "deck": "mountain"
    },
-   "moves": "1csccscsccsccscsccsc3sccscsccsccccsccs3csccscsccccsccs",
-   "time": 269,
+   "moves": "1csccsccccsccscsccsc3sccsccscscsccs0csccsrsccscsccs",
+   "time": 225,
    "stages": [
     26,
-    32,
-    30,
-    21,
-    41,
-    27,
     23,
-    26,
-    43
+    21,
+    22,
+    16,
+    23,
+    32,
+    34,
+    28
    ]
   },
   {
    "seed": "FIX-F",
    "event": {
+    "surface": "tarmac",
+    "deck": "twisty"
+   },
+   "moves": "1ffffffff313",
+   "time": 222,
+   "stages": [
+    13,
+    21,
+    40,
+    32,
+    32,
+    36,
+    24,
+    24
+   ]
+  },
+  {
+   "seed": "FIX-G",
+   "event": {
     "deck": "fast"
    },
-   "moves": "1ffffffffffff3fffffffffff0fffff3",
-   "time": 219,
+   "moves": "1fccfccrcfccfcc1ccfccccfccfc3fccfccfcfccfcc3ccfccccfccfc1fccfccfccccfccf2cfccfcfccf",
+   "time": 396,
    "stages": [
-    3,
-    40,
-    27,
-    57,
-    0,
-    36,
-    32,
-    24
+    7,
+    25,
+    20,
+    39,
+    34,
+    42,
+    19,
+    69,
+    35,
+    37,
+    19,
+    50
    ]
   }
  ]

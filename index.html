@@ -268,8 +268,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=aab7f50z';
-import {API_URL} from './site-config.js?v=aab7f50z';
+import * as E from './engine.js?v=1f78e8bv6';
+import {API_URL} from './site-config.js?v=1f78e8bv6';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -328,7 +328,7 @@ function dmgGauge(c,CFG){
 }
 function fixBox(c,r,CFG){
   if(!E.canFix(r))return c.dmg&&!E.isOut(c)?'<p class="muted fixbox">Damage '+c.dmg+'. Not enough Stamina for a roadside fix.</p>':'';
-  return '<div class="fixbox"><p class="muted" style="margin:0 0 8px">Damage '+c.dmg+(c.dmg>=CFG.dmgLoose?': costing +1 time per card':'')+(c.dmg>=CFG.dmgNoFlat?' and no Flat Out':'')+'. The crew can patch the car here, at the cost of rest.</p><button class="btn" onclick="fixIt()">Roadside fix: −'+CFG.fixStam+' Stamina, −1 Damage</button></div>';
+  return '<div class="fixbox"><p class="muted" style="margin:0 0 8px">Damage '+c.dmg+(c.dmg>=CFG.dmgLoose?': costing +1 time per card':'')+(c.dmg>=CFG.dmgNoFlat?' and no Flat Out':'')+'. The crew can patch the car here, at the cost of rest.</p><button class="btn" onclick="fixIt()">'+(E.fixCost(r).where==='service'?'Extra service work: +'+E.fixCost(r).t+' time, −1 Damage':'Roadside fix: −'+E.fixCost(r).st+' Stamina, +'+E.fixCost(r).t+' time, −1 Damage')+'</button></div>';
 }
 function gauge(label,v,max){
   let s='';for(let i=0;i<max;i++)s+='<i'+(i<v?' class="on"':'')+'></i>';
@@ -393,8 +393,8 @@ function tutSlides(){
     pic:'<div class="minicards">'+mc(card(9,'R',[]),'#e9e3b8','Easy')+mc(card(5,'L',[]),'var(--lamp)','Tricky')+mc(card(2,'R',[]),'#ff8f1f','Hard')+mc(card(0,'L',[]),'var(--flag)','Brutal','#fff')+'</div><div class="chips"><span class="chip" style="background:var(--kerb)">Jump<small>+2 time, −2 Cour</small></span><span class="chip" style="background:var(--kerb)">Unseen<small>+2 time, −1 Cour</small></span></div><p class="muted" style="margin:0;font-size:14px">Modifiers show their cost: time if you drive Safe, nerve if you push.</p>'},
    {h:'Choose your pace',p:'Safe costs time but nothing else. Committed is faster but spends Courage and Stamina. Flat Out is fastest and draws a Luck card. Every button shows its cost before you press it.',
     pic:'<div class="paces">'+pb('safe','Safe','+4 time')+pb('committed','Committed','+1 time · −1 Stam · −2 Cour')+pb('flat','Flat Out','−2 time · −2 Cour · + Luck card')+'</div>'},
-   {h:'Watch your crew',p:'Out of Stamina or Courage and you\'re forced to drive Safe. Out of Luck when you need it and you draw a Death Wish. Bad luck damages the car: 2 Damage slows you, 4 rules out Flat Out, 6 wrecks it. Services repair it, or patch it yourself between stages for Stamina.',
-    pic:'<div class="gauges" style="margin:0">'+gauge('Stamina',7,10)+gauge('Courage',2,8)+gauge('Luck',1,6)+dmgGauge({dmg:3},E.DEF)+'</div><div class="ladder"><div><span>Close Shave</span><span class="muted">+1 Damage</span></div><div><span>Could\'ve Been Worse</span><span class="muted">+3 time, +2 Damage</span></div><div><span>Heavy Off</span><span style="color:var(--lamp)">+10 time, +3 Damage</span></div><div><span>Dead</span><span style="color:var(--flag)">rally over</span></div></div>'},
+   {h:'Watch your crew',p:'Out of Stamina or Courage and you\'re forced to drive Safe. Out of Luck when you need it and you draw a Death Wish. Pushing over rough ground, on the wrong tyres or with bad luck damages the car: 4 Damage slows you, 7 rules out Flat Out, 8 wrecks it. Services repair it; patching it yourself costs time and Stamina.',
+    pic:'<div class="gauges" style="margin:0">'+gauge('Stamina',7,10)+gauge('Courage',2,8)+gauge('Luck',1,6)+dmgGauge({dmg:5},E.DEF)+'</div><div class="ladder"><div><span>Close Shave</span><span class="muted">+1 Damage</span></div><div><span>Could\'ve Been Worse</span><span class="muted">+3 time, +2 Damage</span></div><div><span>Heavy Off</span><span style="color:var(--lamp)">+10 time, +3 Damage</span></div><div><span>Dead</span><span style="color:var(--flag)">rally over</span></div></div>'},
    {h:'Plan your tyres',p:'Stages run on tarmac, gravel or snow, grouped into legs. You only change tyres at a service, so pick for the stages ahead. Wrong tyres cost time on every card.',
     pic:strip(demo,null)+'<div class="gripmini"><span></span><span>Tarmac dry</span><span>Tarmac wet</span><span>Gravel</span><span>Snow</span><span>Slick</span><span class="g0">Good</span><span class="g2">None</span><span class="g2">None</span><span class="g2">None</span><span>Gravel</span><span class="g1">Poor</span><span class="g1">Poor</span><span class="g0">Good</span><span class="g1">Poor</span></div>'},
    {h:'Read the sky',p:'Weather can shift one step each stage, and rain wears the track down. Dark stages at dawn or night make jumps, crests and blind corners costlier. Now go drive.',
@@ -439,7 +439,8 @@ function home(){
   const preview=E.createGame(EVENT.seed,null,EVENT),r=preview.r,sub=store.get('dw-sub-'+WEEK);
   const legs=r.legs,nights=Object.keys(r.night).filter(k=>r.night[k]).length;
   let h='<div class="hero"><div class="panel week"><h2>'+(EVENT.name?esc(EVENT.name):'Rally of the week')+'</h2><p class="muted">'+(EVENT.name?'Rally of the week, ':'Week ')+WEEK+'. Everyone drives this same rally on the official rules. Practise it as often as you like, then submit one run.</p>'+(getHist(WEEK)?'<p class="sent" style="margin:0">Your best this week: '+getHist(WEEK).best+' over '+getHist(WEEK).runs+' run'+(getHist(WEEK).runs>1?'s':'')+'.</p>':'');
-  h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div><div><small>Corners</small><b>'+r.deckName+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.WEATHER[r.weather]+'</b></div></div>';
+  h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div>'+(r.rally?'<div><small>Country</small><b>'+r.rally.name+'</b></div>':'')+'<div><small>Corners</small><b>'+r.deckName+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.WEATHER[r.weather]+'</b></div></div>';
+  if(r.rally)h+='<p style="margin:0 0 12px"><b>'+r.rally.place+'.</b> <span class="muted">'+r.rally.rule+'</span></p>';
   h+=strip(r,null);
   h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
   h+='<div><div class="panel"><h3>Standings, '+WEEK+'</h3><div id="miniLb" class="muted">'+(API?'Loading…':'Leaderboard not connected.')+'</div></div>';
@@ -516,10 +517,10 @@ function render(){
     h+='<div class="a-note note t'+tier+(fresh?' fresh':'')+'"><div class="diff"><span class="count">Stage '+r.stage+', card '+Math.min(r.len,r.len-r.left+1)+' of '+r.len+'</span><span class="row" style="gap:8px;font:700 17px var(--cond)">'+TIER[tier]+'<span class="pips">'+pips+'</span></span></div>'+progress(r,G.ev.length)+'<div class="calls">';
     G.ev.forEach((cd,i)=>{
       if(i===1)h+='<div class="into">into</div>';
-      h+='<div class="call">'+tulip(cd,tier===3?'#fff':'#1b1500')+'<div><div class="say">'+sayCard(cd)+'</div>'+(cd.mods.length?'<div class="chips">'+cd.mods.map(modChip).join('')+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
+      h+='<div class="call">'+tulip(cd,tier===3?'#fff':'#1b1500')+'<div><div class="say">'+sayCard(cd)+'</div>'+(cd.mods.length||cd.ice?'<div class="chips">'+(cd.ice?'<span class="chip">Sheet ice<small>no grip without Snow tyres</small></span>':'')+cd.mods.map(modChip).join('')+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
     });
-    const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],gr=E.grip(c.tyre,su,E.isWet(r.weather));
-    h+='</div><div class="cond"><p>'+E.SURF[su]+(E.isWet(r.weather)?', wet':', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
+    const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],ice=G.ev.some(cd=>cd.ice),gr=ice&&c.tyre!==3?2:E.grip(c.tyre,su,E.isWet(r.weather));
+    h+='</div><div class="cond"><p>'+E.SURF[su]+(ice?', sheet ice':E.isWet(r.weather)?', wet':', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
     if(c.dmg>=CFG.dmgLoose)h+='<p><span class="warn">Damaged car ('+c.dmg+'): +1 time per card'+(c.dmg>=CFG.dmgNoFlat?', no Flat Out':'')+'.</span></p>';
     if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
     if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';

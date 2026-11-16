@@ -3,7 +3,7 @@
 // so a submitted replay is checked with exactly the same rules the player drove.
 // Change anything here that affects results -> bump RULES_VERSION.
 
-export const RULES_VERSION='0.5';
+export const RULES_VERSION='0.6';
 
 // ---------- Config ----------
 const DEF={
@@ -12,14 +12,14 @@ const DEF={
   intoMin:5,recovery:3,stageCourage:3,stageLuck:1,cleanLuck:1,comRisk:0,comStam:1,comCo:0,serviceCo:3,stagesPerLeg:4,longLuck:2,nightOn:1,
   noMod:16,luckGood:6,luckAvg:3,luckBad:3,goodV:-2,badV:2,
   dwClose:4,dwWorse:3,dwTerminal:2,dwDead:1,terminalTime:10,deadTime:4,
-  nightLuck:0,dmgLoose:2,dmgNoFlat:4,dmgMax:6,dmgShortRepair:2,fixStam:2
+  nightLuck:0,dmgLoose:4,dmgNoFlat:7,dmgMax:8,dmgShortRepair:2,fixStam:2,fixTime:2,lateTime:2
 };
 const CFG_META=[
   ['Crew tokens (start / max)'],['stamina','Stamina'],['courage','Courage'],['luck','Luck'],
   ['Pace base time'],['base_safe','Safe'],['base_committed','Committed'],['base_flat','Flat Out'],
   ['Stage flow'],['intoMin','INTO on D6 ≥'],['recovery','Stamina regained per stage end'],['stageCourage','Courage regained every stage end'],['stageLuck','Luck regained every stage end'],['cleanLuck','Extra Luck for a clean stage'],['comStam','Committed: extra Stamina per card'],['comCo','Committed: extra Courage per card'],['comRisk','Committed risk: Luck card on D6 ≤ (0 = off)'],['serviceCo','Courage at short service'],['stagesPerLeg','Stages per leg (legs = stages ÷ this, rounded up)'],['longLuck','Luck at long service (end of leg)'],['nightOn','Night stages (1 = on, 0 = off)'],['noMod','Blank cards in modifier deck (34 real)'],
   ['Luck deck'],['luckGood','Good cards'],['luckAvg','Average cards'],['luckBad','Bad cards'],['goodV','Good result (time)'],['badV','Bad result (time)'],
-  ['Night'],['nightLuck','Extra Luck cost for Flat Out at night'],['Damage'],['dmgLoose','Damage that costs +1 time per card'],['dmgNoFlat','Damage that rules out Flat Out'],['dmgMax','Damage that retires the car'],['dmgShortRepair','Damage repaired at a short service'],['fixStam','Stamina per roadside fix (−1 Damage)'],
+  ['Night'],['nightLuck','Extra Luck cost for Flat Out at night'],['Damage'],['dmgLoose','Damage that costs +1 time per card'],['dmgNoFlat','Damage that rules out Flat Out'],['dmgMax','Damage that retires the car'],['dmgShortRepair','Damage repaired at a short service'],['fixStam','Stamina per roadside fix (−1 Damage)'],['fixTime','Time per roadside fix'],['lateTime','Time per extra repair at a short service'],
   ['Death Wish deck'],['dwClose','Close Shave'],['dwWorse',"Could've Been Worse"],['dwTerminal','Heavy Off'],['dwDead','DEAD'],['terminalTime','Heavy Off time'],['deadTime','Time per event after DEAD']
 ];
 let CFG={...DEF};
@@ -64,7 +64,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 const SURF=['Tarmac','Gravel','Snow'];
 const TYRES=['Slick','Wet','Gravel','Snow'];
-const PROFILES={single:'Single surface',between:'Mixed between stages',within:'Mixed within stages'};
+const PROFILES={single:'Single surface',between:'Mixed between stages',within:'Mixed within stages',snowgravel:'Snow and gravel, mixed within stages',montecarlo:'Tarmac with snow, mixed within stages',mostlygravel:'Mostly gravel, some tarmac stages'};
 // GRIP[tyre][surface][wet] : 0 good, 1 poor, 2 none
 const GRIP=[[[0,2],[2,2],[2,2]],[[1,0],[1,1],[2,2]],[[1,1],[0,0],[1,1]],[[2,1],[1,1],[0,0]]];
 const grip=(ty,su,wet)=>GRIP[ty][su][wet?1:0];
@@ -81,11 +81,27 @@ export const DECKS={
   rough:{name:'Rough roads',grades:[4,4,4,4,4,4,4,4,4,4],straights:8,extra:['Bump','Dip','Water Splash','Jump','Bump','Dip'],blanks:8},
   twisty:{name:'Twisty tarmac',grades:[2,3,3,7,7,7,5,3,1,1],straights:2,extra:['Tightens','Narrow','Don\'t Cut','Opens','Caution'],blanks:16}
 };
-function deckFor(theme){
+// Country rallies: preset surface, corners, weather, darkness, stage length and one special rule.
+// wx = chance the weather gets [better, same, worse] each stage; start = range of starting weather (0 Clear .. 5 Stormy).
+export const RALLIES={
+  canada:{name:'Canada',place:'Charlevoix, Québec',surface:'snowgravel',deck:'fast',wx:[.25,.4,.35],start:[1,4],night:'common',cards:0,special:'thaw',rule:'Thaw: at each stage start, on a 6 one snow half of the stage turns to gravel.'},
+  finland:{name:'Finland',place:'1000 Lakes',surface:'gravel',deck:'fast',extra:['Jump'],wx:[1/3,1/3,1/3],start:[0,3],night:'rare',cards:0,special:'bigair',rule:'Big air: Jumps taken Flat Out save 1 extra time.'},
+  sweden:{name:'Sweden',place:'Värmland',surface:'snow',deck:'fast',wx:[.3,.45,.25],start:[0,2],night:'common',cards:0,special:'snowbank',rule:'Snowbanks: a Bad Luck card costs +1 time instead of +1 Damage.'},
+  monte:{name:'Monte Carlo',place:'Monaco and the Alps',surface:'montecarlo',deck:'mountain',wx:[.3,.25,.45],start:[1,5],night:'very',cards:0,special:'ice',rule:'Ice notes: one card per stage is sheet ice, no grip unless on Snow tyres.'},
+  germany:{name:'Germany',place:'Mosel vineyards',surface:'tarmac',deck:'twisty',wx:[.25,.4,.35],start:[2,4],night:'rare',cards:0,special:'panzer',rule:'Panzerplatte: one stage per leg runs on the army ranges and uses the Rough deck.'},
+  corsica:{name:'Corsica',place:'Tour de Corse',surface:'tarmac',deck:'twisty',wx:[.4,.4,.2],start:[0,2],night:'rare',cards:2,special:'',rule:'10,000 corners: every stage has 2 extra cards.'},
+  portugal:{name:'Portugal',place:'Sintra and Arganil',surface:'mostlygravel',deck:'',wx:[1/3,1/3,1/3],start:[1,3],night:'normal',cards:0,special:'crowds',rule:'Crowds: Unseen costs 1 extra Courage at Flat Out.'},
+  acropolis:{name:'Greece',place:'Acropolis',surface:'gravel',deck:'rough',wx:[.4,.45,.15],start:[0,1],night:'rare',cards:0,special:'heat',rule:'Heat: the crew loses 1 extra Stamina at every stage end.'},
+  safari:{name:'Kenya',place:'Safari',surface:'gravel',deck:'rough',extra:['Water Splash'],wx:[.3,.3,.4],start:[0,3],night:'common',cards:3,special:'safari',rule:'Long stages: every stage has 3 extra cards, and short services repair 3 Damage.'},
+  rac:{name:'Britain',place:'RAC forests',surface:'gravel',deck:'',wx:[.25,.35,.4],start:[2,5],night:'very',cards:0,special:'forest',rule:'Forest night: on dark stages Narrow and Caution also cost 1 more.'},
+  newzealand:{name:'New Zealand',place:'North Island',surface:'gravel',deck:'fast',extra:['Long'],wx:[1/3,1/3,1/3],start:[0,4],night:'normal',cards:0,special:'',rule:'Flowing roads: Long turns up twice as often.'}
+};
+let RALLY=null;
+function deckFor(theme,more){
   const d=DECKS[theme]||DECKS[''],track=[],mods=[...MODS,...MODS];
   d.grades.forEach((n,gi)=>{for(let k=0;k<n;k++)track.push({gi});});
   for(let k=0;k<d.straights;k++)track.push({gi:-1});
-  d.extra.forEach(nm=>{const m=MODS.find(x=>x.n===nm);if(m){mods.push(m,m);}});
+  d.extra.concat(more||[]).forEach(nm=>{const m=MODS.find(x=>x.n===nm);if(m){mods.push(m,m);}});
   const blanks=d.blanks==null?CFG.noMod:d.blanks;for(let k=0;k<blanks;k++)mods.push(null);
   return {track,mods};
 }
@@ -101,41 +117,54 @@ function newRally(){
     s+=n; if(L<legs-1)svc[s-1]='long';
   }
   // night stages: one roll per leg
-  if(CFG.nightOn)legSpan.forEach(([a,b])=>{const d=rnd(6);if(d<=2)night[a]='dawn';else if(d===5)night[b]='night';else if(d===6){night[b]='night';if(b-1>a)night[b-1]='night';}});
+  const nm=RALLY?RALLY.night:'normal';
+  if(CFG.nightOn)legSpan.forEach(([a,b])=>{const d=rnd(6);
+    if(nm==='rare'){if(d===6)night[b]='night';}
+    else if(nm==='common'){if(d<=2)night[a]='dawn';else if(d>=4){night[b]='night';if(d===6&&b-1>a)night[b-1]='night';}}
+    else if(nm==='very'){if(d<=3)night[a]='dawn';if(d>=3){night[b]='night';if(d>=5&&b-1>a)night[b-1]='night';}}
+    else{if(d<=2)night[a]='dawn';else if(d===5)night[b]='night';else if(d===6){night[b]='night';if(b-1>a)night[b-1]='night';}}});
   // surfaces (an event theme can fix them)
   const pd=rnd(6),th=THEME;
-  const profile=['tarmac','gravel','snow'].includes(th)?'single':th==='between'||th==='within'?th:pd<=2?'single':pd<=4?'between':'within';
-  const gt=()=>rnd(6)<=3?1:0,surf=[];
+  const profile=['tarmac','gravel','snow'].includes(th)?'single':th==='between'||th==='mostlygravel'?'between':th==='within'||th==='snowgravel'||th==='montecarlo'?'within':pd<=2?'single':pd<=4?'between':'within';
+  const gt=th==='mostlygravel'?()=>rnd(6)<=4?1:0:th==='snowgravel'?()=>rnd(6)<=3?2:1:th==='montecarlo'?()=>rnd(6)<=4?0:2:()=>rnd(6)<=3?1:0,surf=[];
   if(profile==='single'){const d=rnd(6),su=th==='tarmac'?0:th==='gravel'?1:th==='snow'?2:d<=3?1:d<=5?0:2;for(let k=0;k<stages;k++)surf.push([su,su]);}
   else if(profile==='between'){for(let k=0;k<stages;k++){const su=gt();surf.push([su,su]);}}
-  else{for(let k=0;k<stages;k++){const a=gt();surf.push([a,rnd(6)>=4?1-a:a]);}}
-  return {stages,legs,svc,legOf,night,profile,surf,stage:0,weather:rnd(6)-1,track:rnd(4)-1,left:0,len:0,stageTimes:[],
+  else{const other=a=>th==='snowgravel'?(a===2?1:2):th==='montecarlo'?(a===0?2:0):1-a;for(let k=0;k<stages;k++){const a=gt();surf.push([a,rnd(6)>=4?other(a):a]);}}
+  // Germany: one Panzerplatte stage per leg.
+  const rough={};if(RALLY&&RALLY.special==='panzer')legSpan.forEach(([a,b])=>{rough[a+rnd(b-a+1)-1]=true;});
+  const st=RALLY?RALLY.start:[0,5];
+  return {stages,legs,svc,legOf,night,profile,surf,rough,rally:RALLY,stage:0,weather:st[0]+rnd(st[1]-st[0]+1)-1,track:rnd(4)-1,left:0,len:0,stageTimes:[],
     crew:{tyre:2,st:CFG.stamina,co:CFG.courage,lu:CFG.luck,time:0,dw:0,dwLog:[],dead:false,retired:false,dmg:0,fixes:0,terminal:false,flat:false,stageTime:0,fatigue:0,shaken:0,flats:0,luckOut:0}};
 }
 function startStage(r){
   r.stage++;const L=[];
   if(r.stage>1){
-    const d=rnd(6),w0=r.weather;
-    if(d<=2)r.weather=Math.max(0,r.weather-1);else if(d>=5)r.weather=Math.min(5,r.weather+1);
+    const w0=r.weather;
+    if(r.rally){const x=RT(),b=r.rally.wx;if(x<b[0])r.weather=Math.max(0,w0-1);else if(x>=b[0]+b[1])r.weather=Math.min(5,w0+1);}
+    else{const d=rnd(6);if(d<=2)r.weather=Math.max(0,r.weather-1);else if(d>=5)r.weather=Math.min(5,r.weather+1);}
     if(w0!==r.weather)L.push('Weather: '+WEATHER[w0]+' → '+WEATHER[r.weather]);
     const t0=r.track,d2=rnd(6),w=r.weather;let ch=0;
     if(w===0)ch=-1;else if(w===1&&d2<=4)ch=-1;else if(w===2&&d2<=2)ch=-1;else if(w===3&&d2>=5)ch=1;else if(w===4&&d2>=3)ch=1;else if(w===5)ch=1;
     r.track=clamp(r.track+ch,0,3);
     if(t0!==r.track)L.push('Track: '+TRACKC[t0]+' → '+TRACKC[r.track]);
   }
-  r.len=r.left=rnd(6)+4;
-  const c=r.crew;c.stageTime=0;c.flat=false;c.terminal=false;
+  r.len=r.left=rnd(6)+4+(r.rally?r.rally.cards:0);
+  const c=r.crew;c.stageTime=0;c.flat=false;c.terminal=false;c.gripHit=false;
+  r.ice=r.rally&&r.rally.special==='ice'?rnd(r.len)-1:-1;
+  if(r.rally&&r.rally.special==='thaw'){const sp=r.surf[r.stage-1],h=sp.indexOf(2);if(h>=0&&rnd(6)===6){sp[h]=1;L.push('Thaw: part of this stage has turned to gravel');}}
   return L;
 }
 function drawCard(r){
-  const c={...pick(r.deck?r.deck.track:TRACK)};c.side=RT()<.5?'L':'R';c.mods=[];
-  const m=pick(r.deck?r.deck.mods:MODDECK);if(m)c.mods.push(m);
+  const dk=r.rough[r.stage]?r.roughDeck:r.deck;
+  const c={...pick(dk?dk.track:TRACK)};c.side=RT()<.5?'L':'R';c.mods=[];
+  const m=pick(dk?dk.mods:MODDECK);if(m)c.mods.push(m);
   if(r.track===3)c.mods.push(pick(MODS));
   return c;
 }
 function drawEvent(r){
   const cards=[drawCard(r)];
   if(r.left>=2&&rnd(6)>=CFG.intoMin)cards.push(drawCard(r));
+  cards.forEach((cd,i)=>{if(r.len-r.left+i===r.ice)cd.ice=true;});
   return cards;
 }
 function cardName(c){return c.gi<0?'Straight':c.side+' '+GRADES[c.gi];}
@@ -148,7 +177,8 @@ function addDmg(c,n,L){
 // Exact odds for the next stage start: weather shifts first, then the track shifts based on the NEW weather.
 export function forecast(r){
   const w0=r.weather,wx={};
-  [[Math.max(0,w0-1),1/3],[w0,1/3],[Math.min(5,w0+1),1/3]].forEach(([w,p])=>wx[w]=(wx[w]||0)+p);
+  const b=r.rally?r.rally.wx:[1/3,1/3,1/3];
+  [[Math.max(0,w0-1),b[0]],[w0,b[1]],[Math.min(5,w0+1),b[2]]].forEach(([w,p])=>wx[w]=(wx[w]||0)+p);
   const IMP=[1,4/6,2/6,0,0,0],WOR=[0,0,0,2/6,4/6,1],tr={};
   for(const w in wx){const p=wx[w],t=r.track,ti=Math.max(0,t-1),tw=Math.min(3,t+1);
     const imp=IMP[w],wor=WOR[w];
@@ -175,7 +205,7 @@ function applyEvent(r,cards,pace,dry){
     else if(p==='flat'&&c.dmg>=CFG.dmgNoFlat){forced='Damaged car';p='committed';}
     if(!dry){if(fat)c.fatigue++;if(shaken&&!c.terminal)c.shaken++;if(p==='flat')c.flats++;}
     let t=CFG['base_'+p];if(fat)t+=1;if(c.dmg>=CFG.dmgLoose)t+=1;
-    const sp=r.surf[r.stage-1]||[1,1],su=(r.left-i)>r.len/2?sp[0]:sp[1],gr=grip(c.tyre,su,isWet(r.weather));
+    const sp=r.surf[r.stage-1]||[1,1],su=(r.left-i)>r.len/2?sp[0]:sp[1],gr=card.ice&&c.tyre!==3?2:grip(c.tyre,su,isWet(r.weather));
     t+=gr;
     let gs=0,up=0;card.mods.forEach(m=>{gs+=m.g||0;up+=m.u||0;});
     let stam=card.gi<0?0:STAM[clamp(card.gi+gs,0,9)];stam=Math.max(0,stam+up);
@@ -183,8 +213,9 @@ function applyEvent(r,cards,pace,dry){
     let co=0,lu=0,s2=0;
     card.mods.forEach(m=>{
       const dk=m.dark&&r.night[r.stage];
-      if(p==='safe'){t+=m.t+(dk?1:0);if(r.track===1&&m.rough)t+=1;}
-      else{co+=(m.c||0)+(dk?1:0);lu+=m.l||0;s2+=m.s||0;}
+      const sp2=r.rally?r.rally.special:'',dk2=dk||(sp2==='forest'&&r.night[r.stage]&&(m.n==='Narrow'||m.n==='Caution'));
+      if(p==='safe'){t+=m.t+(dk2?1:0);if(r.track===1&&m.rough)t+=1;}
+      else{co+=(m.c||0)+(dk2?1:0)+(sp2==='crowds'&&p==='flat'&&m.n==='Unseen'?1:0);lu+=m.l||0;s2+=m.s||0;if(sp2==='bigair'&&p==='flat'&&m.n==='Jump')t-=1;}
     });
     if(p!=='safe'&&r.track>=2)co+=1;
     if(gr===2&&p!=='safe')co+=1;
@@ -195,7 +226,8 @@ function applyEvent(r,cards,pace,dry){
     let dw=false;
     if(lu>0){if(c.lu>=lu)c.lu-=lu;else{c.lu=0;dw=true;risk=true;}}
     let luckTxt='',hit=0;
-    if(p==='flat'&&r.track>=2&&card.mods.some(m=>m.rough)&&!dry)hit+=1;
+    if(!dry&&p!=='safe'&&card.mods.some(m=>m.rough)&&frnd(6)<=(p==='flat'?2:1)+(r.track>=2?1:0))hit+=1;
+    if(!dry&&p!=='safe'&&gr===2&&!c.gripHit){c.gripHit=true;hit+=1;}
     const hazard=card.mods.some(m=>m.rough||m.blind);
     const comDraw=p==='committed'&&CFG.comRisk>0&&hazard&&!dry&&frnd(6)<=CFG.comRisk;
     if(p==='flat'||comDraw){
@@ -203,7 +235,7 @@ function applyEvent(r,cards,pace,dry){
       if(!dry){
         if(comDraw)luckTxt=' · Committed gamble';
         const lc=fpick(LUCK),lcost=lc.cost+(p==='flat'&&r.night[r.stage]?CFG.nightLuck:0);
-        if(c.lu>=lcost){c.lu-=lcost;t+=lc.v;luckTxt=' · Luck card ('+lcost+'): '+(lc.k==='good'?'Good, '+lc.v+' time':lc.k==='bad'?'Bad, +'+lc.v+' time, +1 Damage':'Average');if(lc.k==='bad')hit+=1;}
+        if(c.lu>=lcost){c.lu-=lcost;t+=lc.v;luckTxt=' · Luck card ('+lcost+'): '+(lc.k==='good'?'Good, '+lc.v+' time':lc.k==='bad'?'Bad, +'+lc.v+' time'+(r.rally&&r.rally.special==='snowbank'?', +1 more in a snowbank':', +1 Damage'):'Average');if(lc.k==='bad'){if(r.rally&&r.rally.special==='snowbank')t+=1;else hit+=1;}}
         else{luckTxt=' · Luck card needs '+lcost+': RAN OUT OF LUCK';c.luckOut++;dw=true;}
       }
     }
@@ -213,7 +245,7 @@ function applyEvent(r,cards,pace,dry){
       if(co)parts.push((co>0?'−':'+')+Math.abs(co)+' Cour');
       if(lu)parts.push('−'+lu+' Luck');
       L.push({t:parts.join(' · ')+luckTxt,k:luckTxt.includes('Good')?'good':luckTxt.includes('Bad')||luckTxt.includes('RAN')?'bad':''});
-      if(hit){if(!luckTxt.includes('Bad'))L.push({t:'Hit hard on a rough track: +'+hit+' Damage',k:'bad'});addDmg(c,hit,L);}
+      if(hit){L.push({t:'Car damaged: +'+hit+' Damage',k:'bad'});addDmg(c,hit,L);}
       if(dw&&!c.retired)t+=deathWish(c,L);
     }
     T+=t;
@@ -224,6 +256,7 @@ function applyEvent(r,cards,pace,dry){
 function endStage(r){
   const c=r.crew,L=[];
   if(!c.dead&&!c.retired){
+    if(r.rally&&r.rally.special==='heat'){c.st=Math.max(0,c.st-1);L.push('Heat: −1 Stamina');}
     if(r.night[r.stage]){c.st=Math.max(0,c.st-1);L.push((r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage upkeep: −1 Stamina');}
     if(r.weather===4){c.st=Math.max(0,c.st-1);L.push('Heavy Rain upkeep: −1 Stamina');}
     if(r.weather===5){c.st=Math.max(0,c.st-1);c.co=Math.max(0,c.co-1);L.push('Storm upkeep: −1 Stamina, −1 Courage');}
@@ -233,7 +266,7 @@ function endStage(r){
     if(lg&&c.lu<CFG.luck){c.lu=Math.min(CFG.luck,c.lu+lg);L.push((c.flat?'Stage end':'Clean stage')+': +'+lg+' Luck');}
     const sv=r.svc[r.stage];
     if(sv==='long'&&r.stage<r.stages){c.st=CFG.stamina;c.co=CFG.courage;c.lu=Math.min(CFG.luck,c.lu+CFG.longLuck);c.dmg=0;L.push('LONG SERVICE, end of leg '+r.legOf[r.stage]+': car fully repaired, Stamina and Courage full, +'+CFG.longLuck+' Luck');}
-    else if(sv==='short'&&r.stage<r.stages){c.st=CFG.stamina;c.co=Math.min(CFG.courage,c.co+CFG.serviceCo);const fx=Math.min(c.dmg,CFG.dmgShortRepair);c.dmg-=fx;L.push('SERVICE: Stamina restored, +'+CFG.serviceCo+' Courage'+(fx?', '+fx+' Damage repaired':''));}
+    else if(sv==='short'&&r.stage<r.stages){c.st=CFG.stamina;c.co=Math.min(CFG.courage,c.co+CFG.serviceCo);const fx=Math.min(c.dmg,CFG.dmgShortRepair+(r.rally&&r.rally.special==='safari'?1:0));c.dmg-=fx;L.push('SERVICE: Stamina restored, +'+CFG.serviceCo+' Courage'+(fx?', '+fx+' Damage repaired':''));}
   }
   const st=Math.max(0,c.stageTime);c.time+=st;r.stageTimes.push(st);
   return L;
@@ -268,15 +301,18 @@ function pickTyre(r,mode){
   let best=0,bs=1e9;for(let ty=0;ty<4;ty++){const g=tyreForecast(r,ty),sc=g[1]+g[2]*2.5;if(sc<bs){bs=sc;best=ty;}}return best;
 }
 // Roadside fix between stages: tired crew, healthier car.
-export function canFix(r){const c=r.crew;return !isOut(c)&&c.dmg>0&&c.st>=CFG.fixStam&&r.stage<r.stages;}
-function roadsideFix(r,L){const c=r.crew;c.st-=CFG.fixStam;c.dmg-=1;c.fixes++;L.push({t:'Roadside fix: −'+CFG.fixStam+' Stamina, −1 Damage',k:'good'});}
+const atService=r=>r.svc[r.stage]==='short';
+export function fixCost(r){return atService(r)?{st:0,t:CFG.lateTime,where:'service'}:{st:CFG.fixStam,t:CFG.fixTime,where:'roadside'};}
+export function canFix(r){const c=r.crew,f=fixCost(r);return !isOut(c)&&c.dmg>0&&c.st>=f.st&&r.stage<r.stages&&r.stage>0;}
+function roadsideFix(r,L){const c=r.crew,f=fixCost(r);c.st-=f.st;c.dmg-=1;c.fixes++;c.time+=f.t;r.stageTimes[r.stage-1]+=f.t;
+  L.push({t:(f.where==='service'?'Extra service work: +'+f.t+' time':'Roadside fix: −'+f.st+' Stamina, +'+f.t+' time')+', −1 Damage',k:'good'});}
 function runRally(strat,tyreMode){
   const r=newRally();r.crew.tyre=pickTyre(r,tyreMode);
   while(r.stage<r.stages){
     startStage(r);
     while(r.left>0){const ev=drawEvent(r);applyEvent(r,ev,isOut(r.crew)?'safe':strat(r,ev),false);}
     endStage(r);
-    if(!r.svc[r.stage]||r.svc[r.stage]==='short')while(r.stage<r.stages&&r.crew.dmg>=CFG.dmgLoose&&r.crew.st>=CFG.fixStam+3&&!isOut(r.crew))roadsideFix(r,[]);
+    if(r.svc[r.stage]!=='long')while(canFix(r)&&r.crew.dmg>=CFG.dmgLoose&&r.crew.st>=fixCost(r).st+3)roadsideFix(r,[]);
     if(r.svc[r.stage])r.crew.tyre=pickTyre(r,tyreMode);
   }
   return r;
@@ -306,9 +342,12 @@ export function createGame(seed,cfg,event){
   const g={seed,event:event||null,cfg:{...DEF,...(cfg||{})},moves:'',log:[],phase:'tyres',ev:null};
   g.rt=mulberry32(hashStr(seed+'|track'));g.rf=mulberry32(hashStr(seed+'|fate'));
   CFG=g.cfg;buildDecks();g.deckCfg=g.cfg;RT=g.rt;RF=g.rf;
-  THEME=(event&&THEMES[event.surface]!==undefined)?event.surface||'':'';
-  DECK=(event&&DECKS[event.deck])?event.deck:'';
-  g.r=newRally();THEME='';if(DECK)g.r.deck=deckFor(DECK);g.r.deckName=DECKS[DECK].name;DECK='';
+  RALLY=(event&&RALLIES[event.rally])||null;
+  THEME=RALLY?RALLY.surface:(event&&THEMES[event.surface]!==undefined)?event.surface||'':'';
+  DECK=RALLY?RALLY.deck:(event&&DECKS[event.deck])?event.deck:'';
+  g.r=newRally();THEME='';
+  if(DECK||(RALLY&&RALLY.extra))g.r.deck=deckFor(DECK,RALLY&&RALLY.extra);
+  g.r.roughDeck=deckFor('rough');g.r.deckName=DECKS[DECK].name;DECK='';RALLY=null;
   g.log.push({t:'Seed '+seed+' · '+g.r.stages+' stages in '+g.r.legs+' legs · '+PROFILES[g.r.profile]+' · '+WEATHER[g.r.weather]+' · '+TRACKC[g.r.track],k:'hd'});
   return g;
 }
