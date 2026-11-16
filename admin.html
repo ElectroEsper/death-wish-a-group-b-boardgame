@@ -41,7 +41,7 @@ th{color:var(--dust);font-weight:500;font-size:14px}
   <div class="panel" id="login">
     <h2>Admin key</h2>
     <p class="muted">The <code>ADMIN_KEY</code> secret you set on the Cloudflare Worker. It's kept in this tab only.</p>
-    <div class="row"><input id="key" class="inp" type="password" autocomplete="current-password" style="flex:1" aria-label="Admin key"><button class="btn go" onclick="signIn()">Sign in</button></div>
+    <form class="row" onsubmit="event.preventDefault();window.signIn?signIn():document.getElementById('loginMsg').textContent='The page is still loading, or a script was blocked. Reload and try again.';"><input id="key" class="inp" type="password" autocomplete="current-password" style="flex:1" aria-label="Admin key"><button class="btn go" id="signBtn" type="submit">Sign in</button></form>
     <p id="loginMsg" class="msg" role="status"></p>
   </div>
 
@@ -91,8 +91,11 @@ async function call(path,body){
 function say(id,t,ok){$(id).innerHTML='<span class="'+(ok?'ok':'err')+'">'+esc(t)+'</span>';}
 window.signIn=async()=>{
   KEY=$('key').value.trim();if(!API){say('loginMsg','site-config.js has no API_URL.');return;}
-  try{await load();try{sessionStorage.setItem('dw-admin',KEY);}catch(e){}$('login').classList.add('hide');$('app').classList.remove('hide');}
-  catch(e){say('loginMsg',e.message);}
+  if(!KEY){say('loginMsg','Enter the admin key first.');return;}
+  $('signBtn').disabled=true;$('loginMsg').textContent='Signing in…';
+  try{await load();$('loginMsg').textContent='';try{sessionStorage.setItem('dw-admin',KEY);}catch(e){}$('login').classList.add('hide');$('app').classList.remove('hide');}
+  catch(e){say('loginMsg',e.message==='Failed to fetch'?'Couldn\'t reach the leaderboard server. Check that the latest dashboard-worker.js is deployed.':e.message);}
+  finally{$('signBtn').disabled=false;}
 };
 window.shift=d=>{const [y,w]=week.split('-W').map(Number);let nw=w+d,ny=y;if(nw<1){ny--;nw=52;}if(nw>53){ny++;nw=1;}week=ny+'-W'+String(nw).padStart(2,'0');load().catch(e=>say('runMsg',e.message));};
 function preview(){
