@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Death Wish: A Group B Rally Game</title>
+<style>
+:root{--bg:#14130f;--card:#1f1d18;--ink:#f1ece0;--mute:#a59d8c;--acc:#e8b931;--red:#e06a52;--grn:#7cc47c;--line:#34302a;--chip:#2a2721}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:16px 16px 4px;max-width:720px;margin:0 auto}
+h1{font-size:20px;margin:0;letter-spacing:.02em}h1 span{color:var(--acc)}
+h2{font-size:16px;margin:0 0 8px}
+.sub{color:var(--mute);font-size:13px;margin-top:2px}
+.tabs{display:flex;gap:6px;padding:10px 16px;position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1px solid var(--line)}
+.tabs button{flex:1}
+button{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+button.on{border-color:var(--acc);color:var(--acc)}
+button.primary{background:var(--acc);color:#1a1a1a;border-color:var(--acc);font-weight:600}
+main{padding:12px 16px 48px;max-width:720px;margin:0 auto}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.chips span{display:inline-block;background:var(--chip);border-radius:999px;padding:3px 10px;margin:2px 4px 2px 0;font-size:13px;color:var(--mute)}
+.chips span b{color:var(--ink);font-weight:600}
+.tok{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.tok div{background:var(--chip);border-radius:10px;padding:8px 4px}
+.tok b{display:block;font-size:22px}.tok small{color:var(--mute);font-size:12px}
+.tok .zero b{color:var(--red)}
+.note{font-size:30px;font-weight:800;letter-spacing:.03em;line-height:1.1}
+.note .into{font-size:14px;color:var(--red);font-weight:700;letter-spacing:.08em;display:block;margin:4px 0}
+.mods{margin-top:4px;color:var(--acc);font-weight:600}
+.paces{display:grid;gap:8px;margin-top:12px}
+.paces button{text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.paces button small{color:var(--mute);text-align:right}
+.paces button.risk small{color:var(--red)}
+.warn{color:var(--red);font-size:13px;margin-top:8px}
+.log{font-size:13px;color:var(--mute);max-height:300px;overflow:auto}
+.log div{padding:2px 0;border-bottom:1px dashed #2b2823}
+.log .bad{color:var(--red)}.log .good{color:var(--grn)}.log .hd{color:var(--acc);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+th{color:var(--mute);font-weight:500}
+.scroll{overflow-x:auto}
+.cfg{display:grid;grid-template-columns:1fr 76px;gap:6px 10px;align-items:center;font-size:14px}
+.cfg h3{grid-column:1/-1;font-size:13px;color:var(--acc);margin:10px 0 0;text-transform:uppercase;letter-spacing:.06em}
+.cfg input{width:76px;background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px;font:inherit}
+.hide{display:none}
+.mute{color:var(--mute);font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.big{font-size:28px;font-weight:800;color:var(--acc)}
+.bar{height:8px;background:var(--chip);border-radius:4px;overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%;background:var(--acc)}
+</style>
+
+</head>
+<body>
+<header>
+  <h1>Death Wish <span>Group B Rally</span></h1>
+  <div class="sub">A push-your-luck rally game. Lose the least time. Don't run out of luck.</div>
+</header>
+<nav class="tabs">
+  <button id="t-play" class="on" onclick="tab('play')">Play</button>
+  <button id="t-lb" onclick="tab('lb')">Leaderboard</button>
+  <button id="t-sim" onclick="tab('sim')">Simulate</button>
+  <button id="t-cfg" onclick="tab('cfg')">Numbers</button>
+</nav>
+<main>
+  <section id="v-play"></section>
+  <section id="v-lb" class="hide"></section>
+  <section id="v-sim" class="hide">
+    <div class="panel">
+      <h2>Auto-simulation</h2>
+      <div class="mute">Runs full rallies with simple driving strategies, using the values on the Numbers tab.</div>
+      <div class="row" style="margin-top:10px">
+        <label class="mute">Rallies <input id="simN" class="inp" type="number" value="1000" min="10" max="20000" style="width:90px"></label>
+        <label class="mute">Seed <input id="simSeed" class="inp" type="text" placeholder="blank = random" style="width:120px"></label>
+        <button class="primary" onclick="runSim()">Run</button>
+      </div>
+      <div class="mute" style="margin-top:6px">Every strategy drives the same rallies (rally <i>i</i> uses seed + <i>i</i>), so differences come from the choices, not the dice.</div>
+    </div>
+    <div id="simOut"></div>
+  </section>
+  <section id="v-cfg" class="hide">
+    <div class="panel">
+      <h2>Tunable numbers</h2>
+      <div class="mute">These apply to Free play and Simulate only. The weekly ranked rally always uses the official rules (v<span id="rv"></span>). Your values are kept in this browser.</div>
+      <div class="cfg" id="cfgGrid"></div>
+      <div class="row" style="margin-top:12px"><button onclick="resetCfg()">Reset to official values</button></div>
+    </div>
+  </section>
+</main>
+<style>.inp{background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}.lbrow td:nth-child(2){text-align:left}.me td{color:var(--acc)}</style>
+<script type="module">
+import * as E from './engine.js';
+import {API_URL} from './site-config.js';
+const $=id=>document.getElementById(id);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
+// ---------- Custom numbers (free play + sim) ----------
+let custom={...E.DEF};
+try{const s=JSON.parse(store.get('dw-cfg')||'null');if(s)custom={...E.DEF,...s};}catch(e){}
+function buildCfg(){
+  const g=$('cfgGrid');g.innerHTML='';$('rv').textContent=E.RULES_VERSION;
+  E.CFG_META.forEach(m=>{
+    if(m.length===1){const h=document.createElement('h3');h.textContent=m[0];g.appendChild(h);return;}
+    const l=document.createElement('label');l.textContent=m[1];l.htmlFor='c-'+m[0];
+    const i=document.createElement('input');i.type='number';i.id='c-'+m[0];i.value=custom[m[0]];
+    i.oninput=()=>{const v=parseFloat(i.value);if(!isNaN(v)){custom[m[0]]=v;store.set('dw-cfg',JSON.stringify(custom));}};
+    g.appendChild(l);g.appendChild(i);
+  });
+}
+window.resetCfg=()=>{custom={...E.DEF};store.set('dw-cfg',JSON.stringify(custom));buildCfg();};
+const isOfficial=cfg=>Object.keys(E.DEF).every(k=>cfg[k]===E.DEF[k]);
+
+// ---------- Identity (no accounts) ----------
+// A random secret kept in this browser claims your name on the leaderboard.
+let token=store.get('dw-token');
+if(!token){const a=new Uint8Array(18);crypto.getRandomValues(a);token=Array.from(a,b=>b.toString(16).padStart(2,'0')).join('');store.set('dw-token',token);}
+
+// ---------- Play ----------
+let G=null;
+const WEEK=E.isoWeek();
+window.startWeekly=()=>{G=E.createGame(E.weeklySeed(WEEK));G.ranked=true;G.week=WEEK;render();};
+window.startFree=seed=>{
+  if(seed===undefined)seed=($('playSeed')&&$('playSeed').value.trim())||E.randomSeed();
+  G=E.createGame(seed,custom);G.ranked=false;render();
+};
+window.pickT=ty=>{E.chooseTyre(G,ty);render();};
+window.choose=p=>{E.choosePace(G,p);render();};
+window.nextStage=()=>{E.continueStage(G);render();};
+window.quit=()=>{G=null;render();};
+window.replayGame=()=>{G.ranked?startWeekly():startFree(G.seed);};
+window.copyReplay=async()=>{try{await navigator.clipboard.writeText(G.seed+':'+G.moves);$('copyMsg').textContent='Copied.';}catch(e){$('copyMsg').textContent=G.seed+':'+G.moves;}};
+
+function startScreen(){
+  const sub=store.get('dw-sub-'+WEEK);
+  return '<div class="panel"><h2>Rally of the week · '+WEEK+'</h2><div class="mute">Everyone drives the same rally this week, with the official rules (v'+E.RULES_VERSION+'). Practise as much as you like, like a recce. You get <b style="color:var(--ink)">one</b> leaderboard submission per name per week.'+(sub?'<br><span style="color:var(--grn)">You submitted '+esc(sub)+' this week.</span>':'')+'</div><div class="row" style="margin-top:12px"><button class="primary" onclick="startWeekly()">Drive the weekly rally</button><button onclick="tab(\'lb\')">Leaderboard</button></div></div>'
+  +'<div class="panel"><h2>Free play</h2><div class="mute">Any seed, using your values from the Numbers tab. Not ranked. The same seed always gives the same itinerary, weather and cards.</div><div class="row" style="margin-top:12px"><input id="playSeed" class="inp" type="text" placeholder="Seed (blank = random)" style="flex:1;min-width:140px"><button class="primary" onclick="startFree()">Start</button></div></div>';
+}
+function render(){
+  const el=$('v-play');
+  if(!G){el.innerHTML=startScreen();return;}
+  const r=G.r,c=r.crew,CFG=G.cfg;
+  let it='<div class="chips" style="margin-top:6px">';
+  for(let k=1;k<=r.stages;k++){
+    if(k===1||r.legOf[k]!==r.legOf[k-1])it+='<span style="background:none;padding-left:0"><b>Leg '+r.legOf[k]+'</b></span>';
+    const cur=k===r.stage&&G.phase!=='tyres';
+    it+='<span style="'+(cur?'outline:1px solid var(--acc);color:var(--ink)':k<r.stage||(k===r.stage&&G.phase==='tyres')?'opacity:.45':'')+'">S'+k+' '+E.surfLabel(r.surf[k-1])+(r.night[k]?' · '+r.night[k]:'')+'</span>';
+    if(r.svc[k]&&k<r.stages)it+='<span style="background:none;color:var(--acc)">'+(r.svc[k]==='long'?'▮ Long service':'▯ Service')+'</span>';
+  }
+  it+='</div>';
+  let h='<div class="panel"><div class="chips"><span>'+(G.ranked?'<b style="color:var(--acc)">Weekly '+G.week+'</b>':'Seed <b>'+esc(G.seed)+'</b>')+'</span><span>Stage <b>'+r.stage+'/'+r.stages+'</b></span><span>Event <b>'+Math.min(r.len,r.len-r.left+(G.ev?1:0))+'/'+r.len+'</b></span><span>'+E.WEATHER[r.weather]+'</span><span>Track <b>'+E.TRACKC[r.track]+'</b></span><span>Tyres <b>'+E.TYRES[c.tyre]+'</b></span><span>'+E.PROFILES[r.profile]+'</span>'+(c.dead?'<span style="color:var(--red)">DEAD</span>':'')+'</div>'+it;
+  h+='<div class="tok" style="margin-top:10px"><div><b>'+(c.time+Math.max(0,c.stageTime))+'</b><small>Time lost</small></div><div class="'+(c.st<=0?'zero':'')+'"><b>'+c.st+'</b><small>Stamina /'+CFG.stamina+'</small></div><div class="'+(c.co<=0?'zero':'')+'"><b>'+c.co+'</b><small>Courage /'+CFG.courage+'</small></div><div class="'+(c.lu<=0?'zero':'')+'"><b>'+c.lu+'</b><small>Luck /'+CFG.luck+'</small></div></div></div>';
+  if(G.phase==='choose'&&G.ev){
+    h+='<div class="panel">';
+    G.ev.forEach((cd,i)=>{
+      if(i===1)h+='<div class="note"><span class="into">▼ INTO</span></div>';
+      h+='<div class="note">'+E.cardName(cd)+'</div>'+(cd.mods.length?'<div class="mods">'+cd.mods.map(m=>m.n).join(' · ')+'</div>':'<div class="mute">no modifier</div>');
+    });
+    const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],gr=E.grip(c.tyre,su,E.isWet(r.weather));
+    h+='<div class="mute" style="margin-top:6px">'+E.SURF[su]+(E.isWet(r.weather)?', wet':', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip':gr===1?'<span style="color:var(--acc)">poor grip (+1 time)</span>':'<span style="color:var(--red)">no grip (+2 time, +1 Courage unless Safe)</span>')+'</div>';
+    if(r.night[r.stage])h+='<div class="mute" style="color:var(--acc)">'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: Jump, Unseen, Deceptive and Over Crest cost +1 time (Safe) or +1 Courage.</div>';
+    if(G.ev.length>1)h+='<div class="mute" style="margin-top:6px">Linked cards: same pace for both, +1 Courage on the second unless Safe.</div>';
+    h+='<div class="paces">';let fz=null;
+    [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="'+(pv.risk?'risk':'')+'" onclick="choose(\''+k+'\')"><span>'+n+'</span><small>'+pv.txt+'</small></button>';});
+    h+='</div>'+(fz?'<div class="warn">'+fz+': you are forced to Safe pace'+(c.st<=0?' (+1 time per event)':'')+'.</div>':'')+'</div>';
+  }else if(G.phase==='tyres'){
+    const up=E.upcoming(r);
+    h+='<div class="panel"><h2>'+(r.stage===0?'Choose starting tyres':r.svc[r.stage]==='long'?'Long service: choose tyres':'Service: choose tyres')+'</h2>'+(r.stage>0?'<div class="mute">Stage '+r.stage+' lost '+r.stageTimes[r.stageTimes.length-1]+' time.</div>':'')+'<div class="mute" style="margin-top:4px">Until the next service: '+up.map(k=>'S'+k+' '+E.surfLabel(r.surf[k-1])+(r.night[k]?' ('+r.night[k]+')':'')).join(', ')+'. Weather now: <b style="color:var(--ink)">'+E.WEATHER[r.weather]+'</b>, and it can shift one step each stage.</div><div class="paces">';
+    E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button onclick="pickT('+ty+')"><span>'+n+'</span><small>if weather holds: '+g[0]+' good · '+g[1]+' poor · '+g[2]+' no grip</small></button>';});
+    h+='</div><div class="mute" style="margin-top:8px">Counts are stage halves. Slick: dry tarmac only. Wet: wet tarmac. Gravel: gravel, and a poor fallback anywhere. Snow: snow.</div></div>';
+  }else if(G.phase==='stageEnd'){
+    h+='<div class="panel"><h2>Stage '+r.stage+' complete</h2><div class="big">'+r.stageTimes[r.stageTimes.length-1]+' <span class="mute">time lost</span></div><div class="row" style="margin-top:10px"><button class="primary" onclick="nextStage()">Next stage</button></div></div>';
+  }else if(G.phase==='done'){
+    h+='<div class="panel"><h2>Rally finished</h2><div class="big">'+c.time+' <span class="mute">total time lost</span></div><div class="mute">Stages: '+r.stageTimes.join(' · ')+'<br>Death Wishes: '+c.dw+(c.dwLog.length?' ('+c.dwLog.join(', ')+')':'')+' · Flat Outs: '+c.flats+' · Events fatigued: '+c.fatigue+' · shaken: '+c.shaken+'</div>';
+    if(G.ranked)h+=submitBox();
+    h+='<div class="row" style="margin-top:10px"><button class="primary" onclick="replayGame()">Drive it again</button><button onclick="quit()">Menu</button><button onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="mute"></span></div></div>';
+  }
+  if(G.phase!=='done')h+='<div class="row" style="margin:-4px 0 12px"><button onclick="quit()">Abandon rally</button></div>';
+  h+='<div class="panel"><h2>Stage log</h2><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div>';
+  el.innerHTML=h;
+}
+
+// ---------- Leaderboard ----------
+function submitBox(){
+  if(!API_URL)return '<div class="mute" style="margin-top:10px">The leaderboard isn\'t connected yet (set API_URL in site-config.js).</div>';
+  const sub=store.get('dw-sub-'+G.week);
+  if(sub)return '<div class="mute" style="margin-top:10px;color:var(--grn)">You already submitted '+esc(sub)+' for '+G.week+'. This run is practice.</div>';
+  return '<div style="margin-top:12px"><div class="mute">Submit this run to the '+G.week+' leaderboard? One submission per name per week.</div><div class="row" style="margin-top:8px"><input id="lbName" class="inp" maxlength="20" placeholder="Your name" value="'+esc(store.get('dw-name')||'')+'" style="flex:1;min-width:140px"><button class="primary" id="lbBtn" onclick="submitRun()">Submit '+G.r.crew.time+'</button></div><div id="lbMsg" class="mute" style="margin-top:6px"></div></div>';
+}
+window.submitRun=async()=>{
+  const name=$('lbName').value.trim(),msg=$('lbMsg'),btn=$('lbBtn');
+  if(name.length<2){msg.textContent='Name needs at least 2 characters.';return;}
+  btn.disabled=true;msg.textContent='Checking your run…';
+  try{
+    const res=await fetch(API_URL.replace(/\/$/,'')+'/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,token,week:G.week,moves:G.moves,version:E.RULES_VERSION})});
+    const j=await res.json();
+    if(!res.ok){msg.innerHTML='<span style="color:var(--red)">'+esc(j.error||'Submission failed')+'</span>';btn.disabled=false;return;}
+    store.set('dw-name',name);store.set('dw-sub-'+G.week,j.time+' as '+name);
+    msg.innerHTML='<span style="color:var(--grn)">Verified: '+j.time+'. You\'re P'+j.rank+' of '+j.total+'.</span>';btn.remove();
+  }catch(e){msg.innerHTML='<span style="color:var(--red)">Couldn\'t reach the leaderboard.</span>';btn.disabled=false;}
+};
+let lbWeek=WEEK;
+window.lbShift=d=>{const [y,w]=lbWeek.split('-W').map(Number);let nw=w+d,ny=y;if(nw<1){ny--;nw=52;}if(nw>53){ny++;nw=1;}lbWeek=ny+'-W'+String(nw).padStart(2,'0');loadLb();};
+async function loadLb(){
+  const el=$('v-lb');
+  const head='<div class="panel"><div class="row" style="justify-content:space-between"><button onclick="lbShift(-1)">‹</button><h2 style="margin:0">Leaderboard · '+lbWeek+'</h2><button onclick="lbShift(1)" '+(lbWeek>=WEEK?'disabled':'')+'>›</button></div>';
+  if(!API_URL){el.innerHTML=head+'<div class="mute" style="margin-top:10px">Not connected yet. Set API_URL in site-config.js to your Worker\'s address.</div></div>';return;}
+  el.innerHTML=head+'<div class="mute" style="margin-top:10px">Loading…</div></div>';
+  try{
+    const j=await (await fetch(API_URL.replace(/\/$/,'')+'/leaderboard?week='+encodeURIComponent(lbWeek))).json();
+    const me=(store.get('dw-name')||'').toLowerCase();
+    let t='<div class="scroll" style="margin-top:10px"><table class="lbrow"><tr><th>#</th><th>Crew</th><th>Time</th><th>DW</th></tr>';
+    (j.entries||[]).forEach((x,i)=>{t+='<tr class="'+(x.name.toLowerCase()===me?'me':'')+'"><td>'+(i+1)+'</td><td>'+esc(x.name)+(x.dead?' <span style="color:var(--red)">†</span>':'')+'</td><td>'+x.time+'</td><td>'+x.dw+'</td></tr>';});
+    t+='</table></div>';
+    el.innerHTML=head+((j.entries||[]).length?t:'<div class="mute" style="margin-top:10px">No runs yet.</div>')+'<div class="mute" style="margin-top:8px">Times are recalculated by the server from each replay. DW = Death Wishes drawn, † = crew died. Rules v'+E.RULES_VERSION+'.</div></div>';
+  }catch(e){el.innerHTML=head+'<div class="mute" style="margin-top:10px;color:var(--red)">Couldn\'t reach the leaderboard.</div></div>';}
+}
+
+// ---------- Simulate ----------
+window.runSim=()=>{
+  const N=Math.max(10,Math.min(20000,parseInt($('simN').value)||1000));
+  const sIn=$('simSeed');const SEED=sIn.value.trim()||E.randomSeed();sIn.value=SEED;
+  const out=$('simOut');out.innerHTML='<div class="panel mute">Running…</div>';
+  setTimeout(()=>{
+    const rows=E.simulate(SEED,N,custom);
+    const best=Math.min(...rows.map(x=>x.avg)),worst=Math.max(...rows.map(x=>x.avg));
+    const pct=v=>(v*100).toFixed(1)+'%',f1=v=>v.toFixed(1);
+    let h='<div class="panel"><h2>Time lost (lower is better)</h2>';
+    rows.forEach(x=>{h+='<div style="margin:8px 0"><div class="row" style="justify-content:space-between"><span>'+x.name+(x.avg===best?' 🏁':'')+'</span><b>'+f1(x.avg)+'</b></div><div class="bar"><i style="width:'+(x.avg/worst*100)+'%"></i></div><div class="mute">median '+x.med+' · 10–90%: '+x.p10+'–'+x.p90+'</div></div>';});
+    h+='</div><div class="panel"><h2>Risk and resources</h2><div class="scroll"><table><tr><th>Strategy</th><th>Death Wish</th><th>DW / rally</th><th>Terminal</th><th>DEAD</th></tr>';
+    rows.forEach(x=>{h+='<tr><td>'+x.name+'</td><td>'+pct(x.dwAny)+'</td><td>'+x.dwAvg.toFixed(2)+'</td><td>'+pct(x.term)+'</td><td>'+pct(x.dead)+'</td></tr>';});
+    h+='</table></div><div class="scroll" style="margin-top:10px"><table><tr><th>Strategy</th><th>Flat Outs</th><th>Fatigued</th><th>Shaken</th><th>Luck left</th></tr>';
+    rows.forEach(x=>{h+='<tr><td>'+x.name+'</td><td>'+f1(x.flats)+'</td><td>'+f1(x.fat)+'</td><td>'+f1(x.sh)+'</td><td>'+f1(x.endLu)+'</td></tr>';});
+    h+='</table></div><div class="mute" style="margin-top:8px">Seed '+esc(SEED)+' · '+N+' rallies per strategy'+(isOfficial(custom)?' · official rules':' · custom numbers')+'.</div></div>';
+    out.innerHTML=h;
+  },20);
+};
+
+window.tab=t=>{['play','lb','sim','cfg'].forEach(k=>{$('v-'+k).classList.toggle('hide',k!==t);$('t-'+k).classList.toggle('on',k===t);});if(t==='lb')loadLb();};
+buildCfg();render();
+</script>
+</body>
+</html>
