@@ -95,7 +95,7 @@ p{margin:0 0 10px;max-width:62ch}
 .segs i.on{background:var(--chalk)}
 .gauge.low .segs i.on{background:var(--lamp)}
 .gauge.out output{color:var(--flag)}
-.readouts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--kerb);border-radius:10px;overflow:hidden;margin-top:16px}
+.readouts{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--kerb);border-radius:10px;overflow:hidden;margin-top:16px}
 .readouts div{background:var(--road);padding:8px 10px}
 .readouts small{display:block;color:var(--dust);font-size:13px}
 .readouts b{font:600 18px/1.2 var(--cond)}
@@ -121,6 +121,32 @@ p{margin:0 0 10px;max-width:62ch}
 .minidash div{text-align:center}.minidash small{display:block;color:var(--dust);font-size:12px}.minidash b{font:700 22px/1.1 var(--cond)}
 .minidash .out b{color:var(--flag)}
 @media(min-width:900px){.minidash{display:none}}
+/* Difficulty tiers recolour the note card */
+.note.t0{background:#e9e3b8}.note.t1{background:var(--lamp)}.note.t2{background:#ff8f1f}.note.t3{background:var(--flag);color:#fff}
+.note.t3 .cond{border-color:rgba(255,255,255,.3)}
+.diff{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pips{display:flex;gap:4px}.pips i{width:18px;height:8px;border-radius:2px;background:currentColor;opacity:.2}.pips i.on{opacity:1}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border-radius:8px;padding:3px 9px;font:700 17px/1.2 var(--cond);background:rgba(0,0,0,.14)}
+.chip small{font:500 13px var(--body);opacity:.8;margin-left:6px}
+.note.t3 .chip{background:rgba(0,0,0,.22)}
+/* Stage progress */
+.prog{display:flex;gap:3px;margin-top:10px}
+.prog i{flex:1;height:12px;border-radius:3px;background:rgba(0,0,0,.15);position:relative}
+.prog i.done{background:rgba(0,0,0,.45)}
+.prog i.cur{background:currentColor}
+.prog i b{position:absolute;left:0;right:0;bottom:-6px;height:3px;border-radius:2px}
+.progl{display:flex;justify-content:space-between;font-size:13px;opacity:.75;margin-top:9px}
+/* Weather + track scales */
+.wx{margin-top:16px}
+.wx h4{margin:0 0 6px;font:600 15px var(--body);color:var(--dust)}
+.scale{display:grid;gap:3px}
+.scale div{background:var(--asphalt);border-radius:8px;padding:6px 2px 4px;text-align:center;font-size:11px;color:var(--dust);line-height:1.15}
+.scale svg{width:28px;height:22px;display:block;margin:0 auto 3px}
+.scale div.now{background:var(--kerb);color:var(--chalk);box-shadow:inset 0 0 0 2px var(--lamp)}
+.scale div em{display:block;font-style:normal;font-weight:600;color:var(--lamp);font-size:12px;margin-top:2px;min-height:14px}
+.scale.w6{grid-template-columns:repeat(6,1fr)}.scale.w4{grid-template-columns:repeat(4,1fr)}
+.tc0 b{color:var(--clear)}.tc2 b,.tc3 b{color:var(--flag)}
 /* Pace choices */
 .paces{display:grid;gap:8px}
 .pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
@@ -277,6 +303,46 @@ function gauge(label,v,max){
   return '<div class="gauge'+(v<=0?' out':v<=Math.ceil(max/4)?' low':'')+'"><label>'+label+'</label><div class="segs" aria-hidden="true">'+s+'</div><output aria-label="'+label+' '+v+' of '+max+'">'+v+'</output></div>';
 }
 
+// Weather icons, drawn simply so they read at small sizes.
+function wxIcon(w){
+  const sun='<circle cx="11" cy="9" r="5" fill="#ffc20e"/>',cloud=(x,c)=>'<path d="M'+(6+x)+' 18h14a4 4 0 0 0 0-8 6 6 0 0 0-11-1 4.5 4.5 0 0 0-3 9z" fill="'+c+'"/>';
+  const drops=n=>{let d='';for(let i=0;i<n;i++)d+='<path d="M'+(9+i*5)+' 19l-1.5 3" stroke="#7fb2ff" stroke-width="1.8" stroke-linecap="round"/>';return d;};
+  const g=[sun+'<g stroke="#ffc20e" stroke-width="1.6" stroke-linecap="round"><path d="M11 1v2M11 15v2M3 9h2M17 9h2M5 3l1.4 1.4M15.6 13.6L17 15M5 15l1.4-1.4M15.6 4.4L17 3"/></g>',
+    sun+cloud(2,'#c9d1d9'),cloud(0,'#9aa6b2')+cloud(3,'#c9d1d9'),cloud(1,'#8a96a3')+drops(2),cloud(1,'#6d7985')+drops(4),cloud(1,'#4d5864')+'<path d="M15 14l-3 5h3l-2 4" stroke="#ffc20e" stroke-width="1.8" fill="none" stroke-linejoin="round"/>'][w];
+  return '<svg viewBox="0 0 30 24" aria-hidden="true">'+g+'</svg>';
+}
+function weatherScale(r,showOdds){
+  let h='<div class="wx"><h4>Weather'+(showOdds?', chance for the next stage':'')+'</h4><div class="scale w6">';
+  const odds={};if(showOdds){const w=r.weather,lo=Math.max(0,w-1),hi=Math.min(5,w+1);[lo,w,hi].forEach(x=>odds[x]=(odds[x]||0)+1/3);}
+  E.WEATHER.forEach((n,i)=>{h+='<div class="'+(i===r.weather?'now':'')+'">'+wxIcon(i)+n+'<em>'+(odds[i]?Math.round(odds[i]*100)+'%':'')+'</em></div>';});
+  h+='</div></div>';
+  // Track condition drifts with weather: better in dry, worse in wet.
+  const w=r.weather,imp=[1,4/6,2/6,0,0,0][w],wor=[0,0,0,2/6,4/6,1][w];
+  const tr=r.track,ti=Math.max(0,tr-1),tw=Math.min(3,tr+1),to={};
+  if(showOdds){to[tr]=1;if(ti!==tr){to[ti]=imp;to[tr]-=imp;}if(tw!==tr){to[tw]=wor;to[tr]-=wor;}}
+  h+='<div class="wx"><h4>Track condition</h4><div class="scale w4">';
+  E.TRACKC.forEach((n,i)=>{h+='<div class="'+(i===tr?'now':'')+'"><b style="font:700 18px var(--cond);display:block">'+['A','B','C','D'][i]+'</b>'+n+'<em>'+(to[i]>0.001?Math.round(to[i]*100)+'%':'')+'</em></div>';});
+  return h+'</div></div>';
+}
+// Difficulty: extra time a card costs at Safe pace (modifiers, grip, night, conditions) plus corner effort.
+function difficulty(g){
+  const pv=E.preview(g,'safe');
+  const base=g.cfg.base_safe*g.ev.length,extra=parseInt(pv.txt.replace('−','-'))-base;
+  const stam=g.ev.reduce((a,cd)=>a+(cd.gi<0?0:[0,0,0,0,1,1,1,1,2,2][cd.gi]),0);
+  const sc=extra+stam;
+  return sc<=1?0:sc<=3?1:sc<=6?2:3;
+}
+const TIER=['Easy','Tricky','Hard','Brutal'];
+function modChip(m){
+  const bits=[];if(m.t)bits.push((m.t>0?'+':'−')+Math.abs(m.t)+' time');if(m.c)bits.push((m.c>0?'−':'+')+Math.abs(m.c)+' Cour');if(m.l)bits.push('−'+m.l+' Luck');if(m.s)bits.push('−'+m.s+' Stam');
+  return '<span class="chip">'+m.n+(bits.length?'<small>'+bits.join(', ')+'</small>':'')+'</span>';
+}
+function progress(r,cur){
+  const done=r.len-r.left;let h='<div class="prog" aria-hidden="true">';const sp=r.surf[r.stage-1];
+  for(let j=0;j<r.len;j++){const su=(r.len-j)>r.len/2?sp[0]:sp[1];h+='<i class="'+(j<done?'done':j<done+cur?'cur':'')+'">'+(sp[0]!==sp[1]?'<b style="background:'+SURFCOL[su]+'"></b>':'')+'</i>';}
+  return h+'</div><div class="progl"><span>Start</span><span>'+(r.len-done-cur)+' card'+(r.len-done-cur===1?'':'s')+' after this</span><span>Finish</span></div>';
+}
+
 // ---------- Drive ----------
 let G=null,fresh=false;
 const WEEK=E.isoWeek(),WSEED=E.weeklySeed(WEEK);
@@ -320,12 +386,13 @@ function render(){
   // Dash
   h+='<div class="a-dash panel"><div class="clock"><span>'+(G.ranked?'Weekly rally '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
   h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck)+'</div>';
-  h+='<div class="readouts"><div><small>Stage</small><b>'+Math.max(1,r.stage)+' of '+r.stages+'</b></div><div><small>Card</small><b>'+(r.stage?Math.min(r.len,r.len-r.left+(G.ev?1:0))+' of '+r.len:'–')+'</b></div><div><small>Tyres</small><b>'+E.TYRES[c.tyre]+'</b></div><div><small>Weather</small><b>'+E.WEATHER[r.weather]+'</b></div><div><small>Track</small><b>'+E.TRACKC[r.track]+'</b></div><div><small>Death Wishes</small><b>'+c.dw+'</b></div></div>'+(c.dead?'<p class="dead">The crew is dead. The rest of the rally counts at maximum time.</p>':'')+'</div>';
+  h+='<div class="readouts"><div><small>Stage</small><b>'+Math.max(1,r.stage)+' of '+r.stages+'</b></div><div><small>Card</small><b>'+(r.stage?Math.min(r.len,r.len-r.left+(G.ev?1:0))+' of '+r.len:'–')+'</b></div><div><small>Tyres</small><b>'+E.TYRES[c.tyre]+'</b></div><div><small>Death Wishes</small><b>'+c.dw+'</b></div></div>'+weatherScale(r,G.phase!=='done')+(c.dead?'<p class="dead">The crew is dead. The rest of the rally counts at maximum time.</p>':'')+'</div>';
   if(G.phase==='choose'&&G.ev){
-    h+='<div class="a-note note'+(fresh?' fresh':'')+'"><div class="count">Stage '+r.stage+', card '+Math.min(r.len,r.len-r.left+1)+' of '+r.len+'</div><div class="calls">';
+    const tier=difficulty(G);let pips='';for(let i=0;i<4;i++)pips+='<i'+(i<=tier?' class="on"':'')+'></i>';
+    h+='<div class="a-note note t'+tier+(fresh?' fresh':'')+'"><div class="diff"><span class="count">Stage '+r.stage+', card '+Math.min(r.len,r.len-r.left+1)+' of '+r.len+'</span><span class="row" style="gap:8px;font:700 17px var(--cond)">'+TIER[tier]+'<span class="pips">'+pips+'</span></span></div>'+progress(r,G.ev.length)+'<div class="calls">';
     G.ev.forEach((cd,i)=>{
       if(i===1)h+='<div class="into">into</div>';
-      h+='<div class="call">'+tulip(cd,'#1b1500')+'<div><div class="say">'+sayCard(cd)+'</div>'+(cd.mods.length?'<div class="mods">'+cd.mods.map(m=>m.n).join(', ')+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
+      h+='<div class="call">'+tulip(cd,tier===3?'#fff':'#1b1500')+'<div><div class="say">'+sayCard(cd)+'</div>'+(cd.mods.length?'<div class="chips">'+cd.mods.map(modChip).join('')+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
     });
     const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],gr=E.grip(c.tyre,su,E.isWet(r.weather));
     h+='</div><div class="cond"><p>'+E.SURF[su]+(E.isWet(r.weather)?', wet':', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
