@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Death Wish admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--asphalt:#1b2229;--road:#232c35;--kerb:#34404c;--dust:#9aa6b2;--chalk:#eef1f3;--lamp:#ffc20e;--flag:#e2382b;--clear:#6cc58a;--cond:'Barlow Condensed',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--asphalt);color:var(--chalk);font:16px/1.5 'Barlow',system-ui,sans-serif;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+main{max-width:820px;margin:0 auto;padding:20px}
+h1{font:700 32px/1 var(--cond);margin:0 0 4px}
+h2{font:700 22px/1.1 var(--cond);margin:0 0 10px}
+.muted{color:var(--dust)}
+.panel{background:var(--road);border-radius:14px;padding:18px;margin-top:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.inp{background:var(--asphalt);border:1px solid var(--kerb);border-radius:10px;padding:9px 12px;min-width:0}
+.btn{background:var(--kerb);border:0;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer}
+.btn.go{background:var(--lamp);color:#1b1500}.btn.bad{background:var(--flag);color:#fff}
+.btn:disabled{opacity:.45}
+.form{display:grid;grid-template-columns:140px 1fr;gap:10px 14px;align-items:center}
+@media(max-width:560px){.form{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 6px;border-bottom:1px solid var(--kerb);text-align:left}
+th{color:var(--dust);font-weight:500;font-size:14px}
+.msg{margin:10px 0 0;min-height:1.5em}.ok{color:var(--clear)}.err{color:var(--flag)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>Death Wish admin</h1>
+  <p class="muted">Set the weekly rally and manage its leaderboard. Changes go live for players straight away.</p>
+
+  <div class="panel" id="login">
+    <h2>Admin key</h2>
+    <p class="muted">The <code>ADMIN_KEY</code> secret you set on the Cloudflare Worker. It's kept in this tab only.</p>
+    <div class="row"><input id="key" class="inp" type="password" autocomplete="current-password" style="flex:1" aria-label="Admin key"><button class="btn go" onclick="signIn()">Sign in</button></div>
+    <p id="loginMsg" class="msg" role="status"></p>
+  </div>
+
+  <div id="app" class="hide">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between"><button class="btn" onclick="shift(-1)" aria-label="Previous week">‹</button><h2 id="wk" style="margin:0"></h2><button class="btn" onclick="shift(1)" aria-label="Next week">›</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>Rally settings</h2>
+      <div class="form">
+        <label for="evName">Name</label><input id="evName" class="inp" maxlength="60" placeholder="Shown to players, e.g. Rallye des Neiges">
+        <label for="evSeed">Seed</label><div class="row"><input id="evSeed" class="inp" maxlength="60" placeholder="Blank = automatic weekly seed" style="flex:1"><button class="btn" onclick="randSeed()">Random</button></div>
+        <label for="evSurf">Surface</label><select id="evSurf" class="inp"></select>
+        <span>Corner deck</span><span class="muted">Standard (themed decks to come)</span>
+      </div>
+      <p class="muted" id="preview" style="margin:12px 0 0"></p>
+      <label class="row muted" style="margin-top:12px"><input type="checkbox" id="evClear" checked> Clear this week's leaderboard (old runs were on a different rally)</label>
+      <div class="row" style="margin-top:12px"><button class="btn go" onclick="saveEvent()">Save rally settings</button></div>
+      <p id="evMsg" class="msg" role="status"></p>
+    </div>
+
+    <div class="panel">
+      <h2>Leaderboard runs</h2>
+      <label class="row muted"><input type="checkbox" id="release"> When deleting, also free the crew name for anyone to use</label>
+      <div id="runs" style="margin-top:10px"></div>
+      <div class="row" style="margin-top:12px"><button class="btn bad" onclick="clearAll()">Delete every run this week</button></div>
+      <p id="runMsg" class="msg" role="status"></p>
+    </div>
+  </div>
+</main>
+<script type="module">
+import * as E from './engine.js';
+import {API_URL} from './site-config.js';
+const API=(API_URL||'').replace(/\/$/,''),$=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let KEY='';try{KEY=sessionStorage.getItem('dw-admin')||'';}catch(e){}
+let week=E.isoWeek();
+Object.entries(E.THEMES).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v;$('evSurf').appendChild(o);});
+
+async function call(path,body){
+  const res=await fetch(API+'/admin'+path+(body?'':'?week='+week),{method:body?'POST':'GET',headers:{'x-admin-key':KEY,'content-type':'application/json'},body:body?JSON.stringify({week,...body}):undefined});
+  const j=await res.json().catch(()=>({error:'Bad response'}));
+  if(!res.ok)throw new Error(j.error||'Request failed');
+  return j;
+}
+function say(id,t,ok){$(id).innerHTML='<span class="'+(ok?'ok':'err')+'">'+esc(t)+'</span>';}
+window.signIn=async()=>{
+  KEY=$('key').value.trim();if(!API){say('loginMsg','site-config.js has no API_URL.');return;}
+  try{await load();try{sessionStorage.setItem('dw-admin',KEY);}catch(e){}$('login').classList.add('hide');$('app').classList.remove('hide');}
+  catch(e){say('loginMsg',e.message);}
+};
+window.shift=d=>{const [y,w]=week.split('-W').map(Number);let nw=w+d,ny=y;if(nw<1){ny--;nw=52;}if(nw>53){ny++;nw=1;}week=ny+'-W'+String(nw).padStart(2,'0');load().catch(e=>say('runMsg',e.message));};
+function preview(){
+  const seed=$('evSeed').value.trim()||E.weeklySeed(week),g=E.createGame(seed,null,{surface:$('evSurf').value}),r=g.r;
+  const surf=r.surf.map(sp=>E.surfLabel(sp)).join(', ');
+  $('preview').textContent='Preview: '+r.stages+' stages in '+r.legs+' legs, '+E.PROFILES[r.profile].toLowerCase()+'. Surfaces: '+surf+'. Starts '+E.WEATHER[r.weather].toLowerCase()+', track '+E.TRACKC[r.track].toLowerCase()+'.';
+}
+['evSeed','evSurf'].forEach(id=>$(id).addEventListener('input',preview));
+window.randSeed=()=>{$('evSeed').value=E.randomSeed();preview();};
+async function load(){
+  const j=await call('/runs');
+  $('wk').textContent='Week '+week+(week===E.isoWeek()?' (this week)':'');
+  $('evName').value=j.event.name||'';$('evSeed').value=j.event.custom?j.event.seed:'';$('evSurf').value=j.event.surface||'';preview();
+  $('evMsg').textContent='';$('runMsg').textContent='';
+  drawRuns(j.entries);
+}
+function drawRuns(list){
+  $('runs').innerHTML=list.length?'<table><tr><th>Pos</th><th>Crew</th><th>Time</th><th>Submitted</th><th></th></tr>'+list.map((e,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(e.name)+(e.dead?' †':e.retired?' ✕':'')+'</td><td>'+e.time+'</td><td class="muted">'+new Date(e.at).toLocaleString()+'</td><td><button class="btn" data-n="'+esc(e.name)+'">Delete</button></td></tr>').join('')+'</table>':'<p class="muted">No runs this week.</p>';
+  $('runs').querySelectorAll('button[data-n]').forEach(b=>b.onclick=()=>del(b.dataset.n));
+}
+async function del(name){
+  if(!confirm('Delete '+name+'\'s run for '+week+'? They will be able to submit again.'))return;
+  try{const j=await call('/delete',{name,releaseName:$('release').checked});drawRuns(j.entries);say('runMsg','Deleted '+name+'.',true);}catch(e){say('runMsg',e.message);}
+}
+window.clearAll=async()=>{
+  if(!confirm('Delete every run for '+week+'? This can\'t be undone.'))return;
+  try{await call('/clear',{});drawRuns([]);say('runMsg','Every run for '+week+' was deleted.',true);}catch(e){say('runMsg',e.message);}
+};
+window.saveEvent=async()=>{
+  const clear=$('evClear').checked;
+  if(clear&&!confirm('Save the rally settings and delete this week\'s runs?'))return;
+  try{const j=await call('/event',{name:$('evName').value.trim(),seed:$('evSeed').value.trim(),surface:$('evSurf').value,clear});say('evMsg','Saved. Players get '+(j.event.name||'the weekly rally')+' on seed '+j.event.seed+'.',true);if(clear)drawRuns([]);}
+  catch(e){say('evMsg',e.message);}
+};
+if(KEY){$('key').value=KEY;signIn();}
+</script>
+</body>
+</html>

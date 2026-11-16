@@ -66,3 +66,11 @@ ES modules don't load from `file://`. From the repo root: `npx serve .` and open
 - **No accounts.** The first browser to submit a name keeps it, via a secret saved in that browser. Clearing browser data loses the claim.
 - **Practice is allowed.** The weekly seed is public, so players can drive it as often as they like before submitting. Think of it as a recce.
 - **Free tier.** Cloudflare's free Workers and KV limits are far beyond what a hobby leaderboard needs. KV is eventually consistent, so in rare cases two near-simultaneous submissions from one name could both land.
+
+## Admin
+
+`admin.html` (at `…/death-wish-a-group-b-boardgame/admin.html`) lets you name the weekly rally, set its seed and surface theme, and delete leaderboard runs.
+
+It needs a secret on the Worker: Cloudflare dashboard → your Worker → **Settings → Variables and Secrets → Add**, type *Secret*, name `ADMIN_KEY`, value a long password (12+ characters). Then sign in on the admin page with that password.
+
+Changing a week's seed or surface makes it a different rally, so by default saving also clears that week's runs.

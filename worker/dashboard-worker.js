@@ -127,6 +127,8 @@ var PROFILES = { single: "Single surface", between: "Mixed between stages", with
 var GRIP = [[[0, 2], [2, 2], [2, 2]], [[1, 0], [1, 1], [2, 2]], [[1, 1], [0, 0], [1, 1]], [[2, 1], [1, 1], [0, 0]]];
 var grip = /* @__PURE__ */ __name((ty, su, wet) => GRIP[ty][su][wet ? 1 : 0], "grip");
 var isWet = /* @__PURE__ */ __name((w) => w >= 3, "isWet");
+var THEMES = { "": "Rolled at random", tarmac: "All tarmac", gravel: "All gravel", snow: "All snow", between: "Mixed between stages", within: "Mixed within stages" };
+var THEME = "";
 function newRally() {
   const stages = rnd(6) + 6;
   const legs = Math.ceil(stages / CFG.stagesPerLeg), svc = {}, legOf = [], night = [], legSpan = [];
@@ -148,10 +150,11 @@ function newRally() {
       if (b - 1 > a) night[b - 1] = "night";
     }
   });
-  const pd = rnd(6), profile = pd <= 2 ? "single" : pd <= 4 ? "between" : "within";
+  const pd = rnd(6), th = THEME;
+  const profile = ["tarmac", "gravel", "snow"].includes(th) ? "single" : th === "between" || th === "within" ? th : pd <= 2 ? "single" : pd <= 4 ? "between" : "within";
   const gt = /* @__PURE__ */ __name(() => rnd(6) <= 3 ? 1 : 0, "gt"), surf = [];
   if (profile === "single") {
-    const d = rnd(6), su = d <= 3 ? 1 : d <= 5 ? 0 : 2;
+    const d = rnd(6), su = th === "tarmac" ? 0 : th === "gravel" ? 1 : th === "snow" ? 2 : d <= 3 ? 1 : d <= 5 ? 0 : 2;
     for (let k = 0; k < stages; k++) surf.push([su, su]);
   } else if (profile === "between") {
     for (let k = 0; k < stages; k++) {
@@ -456,8 +459,8 @@ function use(g) {
   }
 }
 __name(use, "use");
-function createGame(seed, cfg) {
-  const g = { seed, cfg: { ...DEF, ...cfg || {} }, moves: "", log: [], phase: "tyres", ev: null };
+function createGame(seed, cfg, event) {
+  const g = { seed, event: event || null, cfg: { ...DEF, ...cfg || {} }, moves: "", log: [], phase: "tyres", ev: null };
   g.rt = mulberry32(hashStr(seed + "|track"));
   g.rf = mulberry32(hashStr(seed + "|fate"));
   CFG = g.cfg;
@@ -465,7 +468,9 @@ function createGame(seed, cfg) {
   g.deckCfg = g.cfg;
   RT = g.rt;
   RF = g.rf;
+  THEME = event && THEMES[event.surface] !== void 0 ? event.surface || "" : "";
   g.r = newRally();
+  THEME = "";
   g.log.push({ t: "Seed " + seed + " \xB7 " + g.r.stages + " stages in " + g.r.legs + " legs \xB7 " + PROFILES[g.r.profile] + " \xB7 " + WEATHER[g.r.weather] + " \xB7 " + TRACKC[g.r.track], k: "hd" });
   return g;
 }
@@ -530,9 +535,9 @@ function finishStage(g) {
   g.phase = g.r.stage >= g.r.stages ? "done" : g.r.svc[g.r.stage] ? "tyres" : "stageEnd";
 }
 __name(finishStage, "finishStage");
-function replay(seed, moves) {
+function replay(seed, moves, event) {
   if (typeof moves !== "string" || !/^[0-3scfr]{1,2000}$/.test(moves)) return { ok: false, error: "Bad replay code" };
-  const g = createGame(seed);
+  const g = createGame(seed, null, event);
   for (const ch of moves) {
     if (ch === "r") {
       if ((g.phase === "stageEnd" || g.phase === "tyres") && canFix(g.r)) {
@@ -560,8 +565,66 @@ __name(replay, "replay");
 // src/index.js
 var MAX_ENTRIES = 500;
 var NAME_RE = /^[\p{L}\p{N} _.\-]{2,20}$/u;
+async function getEvent(env, week) {
+  const e = await env.LB.get("event:" + week, "json") || {};
+  return { week, name: e.name || "", seed: e.seed || weeklySeed(week), surface: e.surface || "", custom: !!e.seed, version: RULES_VERSION };
+}
+__name(getEvent, "getEvent");
+async function clearWeek(env, week) {
+  let cursor;
+  do {
+    const l = await env.LB.list({ prefix: "run:" + week + ":", cursor });
+    for (const k of l.keys) await env.LB.delete(k.name);
+    cursor = l.list_complete ? null : l.cursor;
+  } while (cursor);
+  await env.LB.delete("lb:" + week);
+}
+__name(clearWeek, "clearWeek");
+function isAdmin(req, env) {
+  const k = req.headers.get("x-admin-key") || "";
+  return !!env.ADMIN_KEY && env.ADMIN_KEY.length >= 12 && k === env.ADMIN_KEY;
+}
+__name(isAdmin, "isAdmin");
+async function admin(req, url, env) {
+  if (!env.ADMIN_KEY) return json(env, { error: "Admin is off: set an ADMIN_KEY secret on the Worker first." }, 503);
+  if (!isAdmin(req, env)) return json(env, { error: "Wrong admin key." }, 401);
+  const path = url.pathname.slice(6);
+  if (req.method === "GET" && path === "/runs") {
+    const week2 = url.searchParams.get("week") || isoWeek();
+    return json(env, { event: await getEvent(env, week2), entries: await env.LB.get("lb:" + week2, "json") || [] });
+  }
+  let b = {};
+  try {
+    b = await req.json();
+  } catch (e) {
+  }
+  const week = String(b.week || isoWeek());
+  if (!/^\d{4}-W\d{2}$/.test(week)) return json(env, { error: "Bad week" }, 400);
+  if (path === "/delete") {
+    const lower = String(b.name || "").toLowerCase();
+    const list = (await env.LB.get("lb:" + week, "json") || []).filter((e) => e.name.toLowerCase() !== lower);
+    await env.LB.put("lb:" + week, JSON.stringify(list));
+    await env.LB.delete("run:" + week + ":" + lower);
+    if (b.releaseName) await env.LB.delete("name:" + lower);
+    return json(env, { ok: true, entries: list });
+  }
+  if (path === "/event") {
+    const name = String(b.name || "").slice(0, 60), seed = String(b.seed || "").trim().slice(0, 60), surface = String(b.surface || "");
+    if (THEMES[surface] === void 0) return json(env, { error: "Unknown surface theme" }, 400);
+    if (seed && !/^[\w\-#.:]+$/.test(seed)) return json(env, { error: "Seeds can use letters, numbers and - _ # . :" }, 400);
+    await env.LB.put("event:" + week, JSON.stringify({ name, seed, surface, at: Date.now() }));
+    if (b.clear !== false) await clearWeek(env, week);
+    return json(env, { ok: true, event: await getEvent(env, week) });
+  }
+  if (path === "/clear") {
+    await clearWeek(env, week);
+    return json(env, { ok: true });
+  }
+  return json(env, { error: "Not found" }, 404);
+}
+__name(admin, "admin");
 function cors(env) {
-  return { "access-control-allow-origin": env.ALLOWED_ORIGIN || "*", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type" };
+  return { "access-control-allow-origin": env.ALLOWED_ORIGIN || "*", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type,x-admin-key" };
 }
 __name(cors, "cors");
 function json(env, body, status = 200) {
@@ -603,7 +666,8 @@ async function submit(req, env) {
   if (owner && owner.hash !== th) return json(env, { error: "That name is taken by another player." }, 403);
   if (!owner) await env.LB.put("name:" + lower, JSON.stringify({ hash: th, name }));
   if (await env.LB.get("run:" + week + ":" + lower)) return json(env, { error: "You already submitted a run for " + week + "." }, 409);
-  const res = replay(weeklySeed(week), String(b.moves || ""));
+  const ev = await getEvent(env, week);
+  const res = replay(ev.seed, String(b.moves || ""), ev);
   if (!res.ok) return json(env, { error: "Replay rejected: " + res.error }, 400);
   const entry = { name, time: res.time, dw: res.deathWishes, dead: res.dead, retired: !!res.retired, at: Date.now() };
   await env.LB.put("run:" + week + ":" + lower, JSON.stringify({ ...entry, moves: b.moves }));
@@ -627,6 +691,12 @@ var index_default = {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return new Response(null, { headers: cors(env) });
     if (req.method === "GET" && url.pathname === "/leaderboard") return leaderboard(url, env);
+    if (req.method === "GET" && url.pathname === "/event") {
+      const w = url.searchParams.get("week") || isoWeek();
+      if (!/^\d{4}-W\d{2}$/.test(w)) return json(env, { error: "Bad week" }, 400);
+      return json(env, await getEvent(env, w));
+    }
+    if (url.pathname.startsWith("/admin/")) return admin(req, url, env);
     if (req.method === "POST" && url.pathname === "/submit") return submit(req, env);
     if (req.method === "GET" && url.pathname === "/") return json(env, { ok: true, service: "death-wish-leaderboard", week: isoWeek(), version: RULES_VERSION });
     return json(env, { error: "Not found" }, 404);

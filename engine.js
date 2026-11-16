@@ -70,6 +70,9 @@ const GRIP=[[[0,2],[2,2],[2,2]],[[1,0],[1,1],[2,2]],[[1,1],[0,0],[1,1]],[[2,1],[
 const grip=(ty,su,wet)=>GRIP[ty][su][wet?1:0];
 const isWet=w=>w>=3;
 function surfLabel(sp){return sp[0]===sp[1]?SURF[sp[0]]:SURF[sp[0]]+'→'+SURF[sp[1]];}
+// Surface themes an event can set: '' (rolled), 'tarmac', 'gravel', 'snow', 'between', 'within'.
+export const THEMES={'':'Rolled at random',tarmac:'All tarmac',gravel:'All gravel',snow:'All snow',between:'Mixed between stages',within:'Mixed within stages'};
+let THEME='';
 function newRally(){
   const stages=rnd(6)+6;
   // legs and services
@@ -83,10 +86,11 @@ function newRally(){
   }
   // night stages: one roll per leg
   if(CFG.nightOn)legSpan.forEach(([a,b])=>{const d=rnd(6);if(d<=2)night[a]='dawn';else if(d===5)night[b]='night';else if(d===6){night[b]='night';if(b-1>a)night[b-1]='night';}});
-  // surfaces
-  const pd=rnd(6),profile=pd<=2?'single':pd<=4?'between':'within';
+  // surfaces (an event theme can fix them)
+  const pd=rnd(6),th=THEME;
+  const profile=['tarmac','gravel','snow'].includes(th)?'single':th==='between'||th==='within'?th:pd<=2?'single':pd<=4?'between':'within';
   const gt=()=>rnd(6)<=3?1:0,surf=[];
-  if(profile==='single'){const d=rnd(6),su=d<=3?1:d<=5?0:2;for(let k=0;k<stages;k++)surf.push([su,su]);}
+  if(profile==='single'){const d=rnd(6),su=th==='tarmac'?0:th==='gravel'?1:th==='snow'?2:d<=3?1:d<=5?0:2;for(let k=0;k<stages;k++)surf.push([su,su]);}
   else if(profile==='between'){for(let k=0;k<stages;k++){const su=gt();surf.push([su,su]);}}
   else{for(let k=0;k<stages;k++){const a=gt();surf.push([a,rnd(6)>=4?1-a:a]);}}
   return {stages,legs,svc,legOf,night,profile,surf,stage:0,weather:rnd(6)-1,track:rnd(4)-1,left:0,len:0,stageTimes:[],
@@ -271,11 +275,13 @@ export function weeklySeed(week){return 'DW-'+week+'-v'+RULES_VERSION;}
 // Every decision is appended to g.moves: '0'-'3' = tyre choice, 's' / 'c' / 'f' = Safe / Committed / Flat Out.
 // seed + moves fully determine the result.
 function use(g){RT=g.rt;RF=g.rf;CFG=g.cfg;if(g.deckCfg!==g.cfg){buildDecks();g.deckCfg=g.cfg;}}
-export function createGame(seed,cfg){
-  const g={seed,cfg:{...DEF,...(cfg||{})},moves:'',log:[],phase:'tyres',ev:null};
+// event (optional): {surface} from the weekly rally's admin settings.
+export function createGame(seed,cfg,event){
+  const g={seed,event:event||null,cfg:{...DEF,...(cfg||{})},moves:'',log:[],phase:'tyres',ev:null};
   g.rt=mulberry32(hashStr(seed+'|track'));g.rf=mulberry32(hashStr(seed+'|fate'));
   CFG=g.cfg;buildDecks();g.deckCfg=g.cfg;RT=g.rt;RF=g.rf;
-  g.r=newRally();
+  THEME=(event&&THEMES[event.surface]!==undefined)?event.surface||'':'';
+  g.r=newRally();THEME='';
   g.log.push({t:'Seed '+seed+' · '+g.r.stages+' stages in '+g.r.legs+' legs · '+PROFILES[g.r.profile]+' · '+WEATHER[g.r.weather]+' · '+TRACKC[g.r.track],k:'hd'});
   return g;
 }
@@ -324,9 +330,9 @@ export function preview(g,p){
 }
 
 // Re-drive a rally from seed + moves with the official rules. Used by the leaderboard Worker.
-export function replay(seed,moves){
+export function replay(seed,moves,event){
   if(typeof moves!=='string'||!/^[0-3scfr]{1,2000}$/.test(moves))return {ok:false,error:'Bad replay code'};
-  const g=createGame(seed);
+  const g=createGame(seed,null,event);
   for(const ch of moves){
     if(ch==='r'){if((g.phase==='stageEnd'||g.phase==='tyres')&&canFix(g.r)){fixCar(g);continue;}return {ok:false,error:'Repair not allowed there'};}
     while(g.phase==='stageEnd')continueStage(g);

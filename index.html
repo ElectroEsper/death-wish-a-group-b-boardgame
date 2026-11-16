@@ -405,8 +405,11 @@ function firstTime(f){if(store.get('dw-tut')){f();return;}pendingStart=f;openTut
 
 // ---------- Drive ----------
 let G=null,fresh=false;
-const WEEK=E.isoWeek(),WSEED=E.weeklySeed(WEEK);
-window.startWeekly=()=>firstTime(()=>{G=E.createGame(WSEED);G.ranked=true;G.week=WEEK;fresh=true;render();scrollTo(0,0);});
+const WEEK=E.isoWeek();
+// The weekly event: name, seed and surface theme can be set by the admin. Defaults until the server answers.
+let EVENT={week:WEEK,name:'',seed:E.weeklySeed(WEEK),surface:''};
+if(API)fetch(API+'/event?week='+WEEK).then(x=>x.json()).then(e=>{if(e&&e.seed){EVENT=e;if(!G)render();}}).catch(()=>{});
+window.startWeekly=()=>firstTime(()=>{G=E.createGame(EVENT.seed,null,EVENT);G.ranked=true;G.week=WEEK;fresh=true;render();scrollTo(0,0);});
 window.startFree=seed=>{
   if(seed===undefined)seed=($('playSeed')&&$('playSeed').value.trim())||E.randomSeed();
   firstTime(()=>{G=E.createGame(seed,custom);G.ranked=false;fresh=true;render();scrollTo(0,0);});
@@ -420,9 +423,9 @@ window.replayGame=()=>{G.ranked?startWeekly():startFree(G.seed);};
 window.copyReplay=async()=>{try{await navigator.clipboard.writeText(G.seed+':'+G.moves);$('copyMsg').textContent='Replay code copied';}catch(e){$('copyMsg').textContent=G.seed+':'+G.moves;}};
 
 function home(){
-  const preview=E.createGame(WSEED),r=preview.r,sub=store.get('dw-sub-'+WEEK);
+  const preview=E.createGame(EVENT.seed,null,EVENT),r=preview.r,sub=store.get('dw-sub-'+WEEK);
   const legs=r.legs,nights=Object.keys(r.night).filter(k=>r.night[k]).length;
-  let h='<div class="hero"><div class="panel week"><h2>Rally of the week</h2><p class="muted">Week '+WEEK+'. Everyone drives this same rally on the official rules. Practise it as often as you like, then submit one run.</p>';
+  let h='<div class="hero"><div class="panel week"><h2>'+(EVENT.name?esc(EVENT.name):'Rally of the week')+'</h2><p class="muted">'+(EVENT.name?'Rally of the week, ':'Week ')+WEEK+'. Everyone drives this same rally on the official rules. Practise it as often as you like, then submit one run.</p>';
   h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.WEATHER[r.weather]+'</b></div></div>';
   h+=strip(r,null);
   h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
@@ -445,7 +448,7 @@ function render(){
   const r=G.r,c=r.crew,CFG=G.cfg;
   let h='<div class="game'+(G.phase==='choose'?'':' calm')+'"><div class="a-strip panel">'+strip(r,G.phase)+'</div>';
   // Dash
-  h+='<div class="a-dash panel"><div class="clock"><span>'+(G.ranked?'Weekly rally '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
+  h+='<div class="a-dash panel"><div class="clock"><span>'+(G.ranked?(EVENT.name?esc(EVENT.name):'Weekly rally')+', '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
   h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck)+dmgGauge(c,CFG)+'</div>';
   h+='<div class="readouts"><div><small>Stage</small><b>'+Math.max(1,r.stage)+' of '+r.stages+'</b></div><div><small>Card</small><b>'+(r.stage?Math.min(r.len,r.len-r.left+(G.ev?1:0))+' of '+r.len:'–')+'</b></div><div><small>Tyres</small><b>'+E.TYRES[c.tyre]+'</b></div><div><small>Death Wishes</small><b>'+c.dw+'</b></div></div>'+weatherScale(r,G.phase!=='done')+(c.dead?'<p class="dead">The crew is dead. The rest of the rally counts at maximum time.</p>':c.retired?'<p class="dead">The car is wrecked and the crew has retired. The rest of the rally counts at maximum time.</p>':'')+'</div>';
   if(G.phase==='choose'&&G.ev){
