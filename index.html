@@ -268,8 +268,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=680945fy';
-import {API_URL} from './site-config.js?v=680945fy';
+import * as E from './engine.js?v=aab7f50z';
+import {API_URL} from './site-config.js?v=aab7f50z';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -345,23 +345,28 @@ function wxIcon(w){
 }
 function weatherScale(r,showOdds){
   let h='<div class="wx"><h4>Weather'+(showOdds?', chance for the next stage':'')+'</h4><div class="scale w6">';
-  const odds={};if(showOdds){const w=r.weather,lo=Math.max(0,w-1),hi=Math.min(5,w+1);[lo,w,hi].forEach(x=>odds[x]=(odds[x]||0)+1/3);}
+  const fc=showOdds?E.forecast(r):{weather:{},track:{}},odds=fc.weather;
   E.WEATHER.forEach((n,i)=>{h+='<div class="'+(i===r.weather?'now':'')+'">'+wxIcon(i)+n+'<em>'+(odds[i]?Math.round(odds[i]*100)+'%':'')+'</em></div>';});
   h+='</div></div>';
   // Track condition drifts with weather: better in dry, worse in wet.
-  const w=r.weather,imp=[1,4/6,2/6,0,0,0][w],wor=[0,0,0,2/6,4/6,1][w];
-  const tr=r.track,ti=Math.max(0,tr-1),tw=Math.min(3,tr+1),to={};
-  if(showOdds){to[tr]=1;if(ti!==tr){to[ti]=imp;to[tr]-=imp;}if(tw!==tr){to[tw]=wor;to[tr]-=wor;}}
-  h+='<div class="wx"><h4>Track condition</h4><div class="scale w4">';
+  const tr=r.track,to=fc.track;
+  h+='<div class="wx"><h4>Track condition'+(showOdds?', chance for the next stage':'')+'</h4><div class="scale w4">';
   E.TRACKC.forEach((n,i)=>{h+='<div class="'+(i===tr?'now':'')+'"><b style="font:700 18px var(--cond);display:block">'+['A','B','C','D'][i]+'</b>'+n+'<em>'+(to[i]>0.001?Math.round(to[i]*100)+'%':'')+'</em></div>';});
   return h+'</div></div>';
 }
 // Difficulty: extra time a card costs at Safe pace (modifiers, grip, night, conditions) plus corner effort.
+// Difficulty is measured against YOUR crew right now:
+// what playing it safe costs in time, plus how much of your remaining nerve and energy pushing would burn.
 function difficulty(g){
-  const pv=E.preview(g,'safe');
-  const base=g.cfg.base_safe*g.ev.length,extra=parseInt(pv.txt.replace('−','-'))-base;
-  const stam=g.ev.reduce((a,cd)=>a+(cd.gi<0?0:[0,0,0,0,1,1,1,1,2,2][cd.gi]),0);
-  const sc=extra+stam;
+  const c=g.r.crew,base=g.cfg.base_safe*g.ev.length;
+  const safe=E.preview(g,'safe'),com=E.preview(g,'committed');
+  if(com.risk)return 3;
+  let sc=Math.max(0,safe.T-base);
+  if(!com.forced){
+    const co=-com.dc,st=-com.ds;
+    sc+=Math.round(co/Math.max(1,c.co)*4)+Math.round(st/Math.max(1,c.st)*3);
+    if(c.co-co<=0||c.st-st<=0)sc+=3;
+  }
   return sc<=1?0:sc<=3?1:sc<=6?2:3;
 }
 const TIER=['Easy','Tricky','Hard','Brutal'];
@@ -433,15 +438,33 @@ window.copyReplay=async()=>{try{await navigator.clipboard.writeText(G.seed+':'+G
 function home(){
   const preview=E.createGame(EVENT.seed,null,EVENT),r=preview.r,sub=store.get('dw-sub-'+WEEK);
   const legs=r.legs,nights=Object.keys(r.night).filter(k=>r.night[k]).length;
-  let h='<div class="hero"><div class="panel week"><h2>'+(EVENT.name?esc(EVENT.name):'Rally of the week')+'</h2><p class="muted">'+(EVENT.name?'Rally of the week, ':'Week ')+WEEK+'. Everyone drives this same rally on the official rules. Practise it as often as you like, then submit one run.</p>';
-  h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.WEATHER[r.weather]+'</b></div></div>';
+  let h='<div class="hero"><div class="panel week"><h2>'+(EVENT.name?esc(EVENT.name):'Rally of the week')+'</h2><p class="muted">'+(EVENT.name?'Rally of the week, ':'Week ')+WEEK+'. Everyone drives this same rally on the official rules. Practise it as often as you like, then submit one run.</p>'+(getHist(WEEK)?'<p class="sent" style="margin:0">Your best this week: '+getHist(WEEK).best+' over '+getHist(WEEK).runs+' run'+(getHist(WEEK).runs>1?'s':'')+'.</p>':'');
+  h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div><div><small>Corners</small><b>'+r.deckName+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.WEATHER[r.weather]+'</b></div></div>';
   h+=strip(r,null);
   h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
   h+='<div><div class="panel"><h3>Standings, '+WEEK+'</h3><div id="miniLb" class="muted">'+(API?'Loading…':'Leaderboard not connected.')+'</div></div>';
   h+='<div class="panel"><h3>Free play</h3><p class="muted">Any seed, with your values from Numbers. Not ranked. The same seed always gives the same rally.</p><div class="row"><input id="playSeed" class="inp" type="text" placeholder="Seed, or leave blank" style="flex:1;min-width:120px" aria-label="Seed"><button class="btn" onclick="startFree()">Start free play</button></div></div>';
-  h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p></div></div></div>';
+  h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p></div>'+histPanel()+'</div></div>';
   return h;
 }
+// ---------- Personal history (kept in this browser) ----------
+function getHist(week){try{return JSON.parse(store.get('dw-hist-'+week)||'null');}catch(e){return null;}}
+function saveHistory(g){
+  const h=getHist(g.week)||{runs:0,best:null,bestStages:null,name:EVENT.name||''};
+  const t=g.r.crew.time;h.runs++;g.pb=h.best==null||t<h.best;
+  if(g.pb){h.best=t;h.bestStages=g.r.stageTimes.slice();}
+  store.set('dw-hist-'+g.week,JSON.stringify(h));
+  const el=$('pbNote');if(el)el.textContent=g.pb?(h.runs>1?'New personal best for this week.':'First run of the week logged.'):'Your best this week is '+h.best+'.';
+}
+function allHist(){
+  const out=[];try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k.startsWith('dw-hist-')){const h=getHist(k.slice(8));if(h)out.push({week:k.slice(8),...h});}}}catch(e){}
+  return out.sort((a,b)=>a.week<b.week?1:-1);
+}
+function histPanel(){
+  const H=allHist();if(!H.length)return '';
+  return '<div class="panel"><h3>Your weekly rallies</h3><table class="mini"><tr><th>Week</th><th>Rally</th><th>Best</th><th>Runs</th></tr>'+H.slice(0,8).map(h=>{const sub=store.get('dw-sub-'+h.week);return '<tr><td>'+h.week+'</td><td>'+esc(h.name||'Weekly rally')+(sub?' <span class="sent">submitted '+esc(sub.split(' as ')[0])+'</span>':'')+'</td><td><b>'+h.best+'</b></td><td>'+h.runs+'</td></tr>';}).join('')+'</table></div>';
+}
+
 // ---------- Live standings: compare your stage-by-stage total with every submitted run ----------
 // The server is the truth about whether you've submitted this week (an admin may have deleted your run).
 function syncSubmitted(week,entries){
@@ -500,7 +523,7 @@ function render(){
     if(c.dmg>=CFG.dmgLoose)h+='<p><span class="warn">Damaged car ('+c.dmg+'): +1 time per card'+(c.dmg>=CFG.dmgNoFlat?', no Flat Out':'')+'.</span></p>';
     if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
     if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';
-    const md=(l,v)=>'<div class="'+(v<=0?'out':'')+'"><small>'+l+'</small><b>'+v+'</b></div>';
+    const md=(l,v)=>'<div class="'+(v<=0&&l!=='Time'?'out':'')+'"><small>'+l+'</small><b>'+v+'</b></div>';
     h+='</div></div><div class="a-paces paces"><div class="minidash">'+md('Time',c.time+Math.max(0,c.stageTime))+md('Stamina',c.st)+md('Courage',c.co)+md('Luck',c.lu)+'</div>';let fz=null;
     [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="pace p-'+k+(pv.risk?' risk':'')+'" onclick="choose(\''+k+'\')"><b>'+n+'</b><small>'+pv.txt+'</small></button>';});
     h+=(fz?'<p class="forced">'+fz+': every pace is driven as Safe'+(c.st<=0?', with +1 time per card':'')+'.</p>':'')+'<div class="row" style="margin-top:6px"><button class="btn" onclick="quit()">Abandon rally</button></div></div>';
@@ -514,11 +537,14 @@ function render(){
     h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()">Start stage '+(r.stage+1)+'</button></div>'+standings(G)+fixBox(c,r,CFG)+'</div>';
   }else if(G.phase==='done'){
     h+='<div class="a-note panel"><h2>'+(c.dead?'The crew didn\'t make it':c.retired?'Retired: car wrecked':'Rally complete')+'</h2><div class="clock"><b>'+c.time+'</b><span>total time lost</span></div><p class="muted" style="margin-top:10px">Stage times: '+r.stageTimes.join(', ')+'. '+c.dw+' Death Wish'+(c.dw===1?'':'es')+', '+c.flats+' Flat Out calls.</p>';
-    if(G.ranked)h+=standings(G,true)+submitBox();
+    if(G.ranked)h+='<p id="pbNote" class="sent" style="margin:8px 0 0">'+(G.histSaved?(G.pb?'New personal best for this week.':'Your best this week is '+(getHist(G.week)||{}).best+'.'):'')+'</p>'+standings(G,true)+submitBox();
     h+='<div class="row" style="margin-top:14px"><button class="btn go" onclick="replayGame()">Drive it again</button><button class="btn" onclick="quit()">Back to menu</button><button class="btn" onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="muted" role="status"></span></div></div>';
   }
   h+='<div class="a-log panel"><h3>Timing sheet</h3><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div></div>';
   el.innerHTML=h;fresh=false;
+  const cur=el.querySelector('.st.now')||el.querySelector('.st:not(.done)');const sb=el.querySelector('.strip');
+  if(cur&&sb&&sb.scrollWidth>sb.clientWidth)sb.scrollLeft=Math.max(0,cur.offsetLeft-sb.offsetLeft-sb.clientWidth/2+cur.offsetWidth/2);
+  if(G.phase==='done'&&G.ranked&&!G.histSaved){G.histSaved=true;saveHistory(G);}
 }
 
 // ---------- Leaderboard ----------
@@ -550,11 +576,53 @@ async function loadLb(){
   try{
     const j=await (await fetch(API+'/leaderboard?week='+encodeURIComponent(lbWeek))).json(),e=j.entries||[];
     syncSubmitted(lbWeek,e);const me=(store.get('dw-name')||'').toLowerCase(),best=e.length?e[0].time:0;
-    let t='<div class="scroll" style="margin-top:12px"><table><tr><th>Pos</th><th>Crew</th><th>Time</th><th>Gap</th><th>Death Wishes</th></tr>';
-    e.forEach((x,i)=>{t+='<tr class="'+(x.name.toLowerCase()===me?'me':'')+'"><td>'+(i+1)+'</td><td>'+esc(x.name)+(x.dead?' <span style="color:var(--flag)" title="Crew died">†</span>':x.retired?' <span style="color:var(--lamp)" title="Car wrecked">✕</span>':'')+'</td><td><b>'+x.time+'</b></td><td>'+(i?'+'+(x.time-best):'')+'</td><td>'+x.dw+'</td></tr>';});
+    let t='<div class="scroll" style="margin-top:12px"><table><tr><th>Pos</th><th>Crew</th><th>Time</th><th>Gap</th><th>Death Wishes</th><th></th></tr>';
+    e.forEach((x,i)=>{t+='<tr class="'+(x.name.toLowerCase()===me?'me':'')+'"><td>'+(i+1)+'</td><td>'+esc(x.name)+(x.dead?' <span style="color:var(--flag)" title="Crew died">†</span>':x.retired?' <span style="color:var(--lamp)" title="Car wrecked">✕</span>':'')+'</td><td><b>'+x.time+'</b></td><td>'+(i?'+'+(x.time-best):'')+'</td><td>'+x.dw+'</td><td><button class="btn" style="padding:6px 12px" data-watch="'+esc(x.name)+'">Watch</button></td></tr>';});
     t+='</table></div>';
     el.innerHTML=head+(e.length?t:'<p class="muted" style="margin-top:12px">'+(lbWeek===WEEK?'No runs yet this week. Drive the weekly rally and be the first.':'No runs that week.')+'</p>')+'<p class="muted" style="margin:12px 0 0;font-size:14px">The server recalculates every time from the run\'s replay. † means the crew died, ✕ that the car was wrecked.</p></div>';
+    el.querySelectorAll('[data-watch]').forEach(b=>b.onclick=()=>watchRun(lbWeek,b.dataset.watch));
+    el.insertAdjacentHTML('beforeend','<div class="panel"><h3>Season '+lbWeek.slice(0,4)+'</h3><div id="seasonBox" class="muted">Loading…</div></div>');
+    loadSeason(lbWeek.slice(0,4));
   }catch(err){el.innerHTML=head+'<p style="margin-top:12px;color:var(--flag)">Couldn\'t reach the leaderboard. Check your connection and try again.</p></div>';}
+}
+
+// ---------- Season standings ----------
+async function loadSeason(year){
+  try{
+    const j=await (await fetch(API+'/season?year='+year)).json(),t=j.table||[],me=(store.get('dw-name')||'').toLowerCase();
+    if(!t.length){$('seasonBox').textContent='No weekly results yet this year.';return;}
+    $('seasonBox').outerHTML='<p class="muted">Each week\'s top 10 score '+j.points.join(', ')+' points. '+j.weeks.length+' week'+(j.weeks.length>1?'s':'')+' counted.</p><div class="scroll"><table><tr><th>Pos</th><th>Crew</th><th>Points</th><th>Wins</th><th>Podiums</th><th>Weeks</th></tr>'+t.map((c,i)=>'<tr class="'+(c.name.toLowerCase()===me?'me':'')+'"><td>'+(i+1)+'</td><td>'+esc(c.name)+'</td><td><b>'+c.points+'</b></td><td>'+c.wins+'</td><td>'+c.podiums+'</td><td>'+c.weeks+'</td></tr>').join('')+'</table></div>';
+  }catch(e){const b=$('seasonBox');if(b)b.textContent='Couldn\'t load the season.';}
+}
+
+// ---------- Watch a run: re-drive it locally from its replay and lay it out stage by stage ----------
+const PACECOL={s:'var(--kerb)',c:'var(--lamp)',f:'var(--flag)'},PACENAME={s:'Safe',c:'Committed',f:'Flat Out'};
+async function watchRun(week,name){
+  const el=$('v-lb');el.innerHTML='<div class="panel muted">Loading '+esc(name)+'\'s run…</div>';
+  try{
+    const res=await fetch(API+'/run?week='+encodeURIComponent(week)+'&name='+encodeURIComponent(name));const j=await res.json();
+    if(!res.ok)throw new Error(j.error||'Couldn\'t load that run.');
+    const g=E.createGame(j.event.seed,null,j.event),stages=[];let cur=null;
+    const tot=()=>g.r.crew.time+(g.r.stageTimes.length>=g.r.stage?0:g.r.crew.stageTime);
+    for(const ch of j.moves){
+      if(ch==='r'){E.fixCar(g);if(cur)cur.fixes=(cur.fixes||0)+1;continue;}
+      while(g.phase==='stageEnd')E.continueStage(g);
+      if(g.phase==='tyres'){stages.push(cur={stage:g.r.stage+1,tyre:E.TYRES[+ch],calls:[],surf:g.r.surf[g.r.stage]});E.chooseTyre(g,+ch);continue;}
+      if(!cur||cur.stage!==g.r.stage){stages.push(cur={stage:g.r.stage,calls:[],surf:g.r.surf[g.r.stage-1]});}
+      const before=tot(),cards=g.ev.map(cd=>({cd,mods:cd.mods.map(m=>m.n)}));
+      E.choosePace(g,{s:'safe',c:'committed',f:'flat'}[ch]);
+      cur.calls.push({cards,pace:ch,t:tot()-before});
+    }
+    while(g.phase==='stageEnd')E.continueStage(g);
+    let h='<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">'+esc(j.name)+', '+j.time+'</h2><button class="btn" onclick="tab(\'lb\')">Back to leaderboard</button></div><p class="muted" style="margin-top:6px">'+(j.event.name?esc(j.event.name)+', ':'')+'week '+week+'. Every call they made, stage by stage.</p></div>';
+    stages.forEach(st=>{
+      const stT=g.r.stageTimes[st.stage-1];
+      h+='<div class="panel"><div class="row" style="justify-content:space-between"><h3 style="margin:0">Stage '+st.stage+' <span class="muted" style="font:500 15px var(--body)">'+E.surfLabel(st.surf)+(st.tyre?', fitted '+st.tyre+' tyres':'')+(st.fixes?', then '+st.fixes+' roadside fix'+(st.fixes>1?'es':'')+' after':'')+'</span></h3><b style="font:700 22px var(--cond)">'+(stT==null?'':stT)+'</b></div><div class="log" style="max-height:none">';
+      st.calls.forEach(c=>{h+='<div style="display:flex;gap:10px;align-items:center;color:var(--chalk)"><span style="flex:none;width:86px;border-radius:6px;padding:2px 8px;font:700 14px var(--cond);text-align:center;background:'+PACECOL[c.pace]+';color:'+(c.pace==='s'?'var(--chalk)':'#1b1500')+'">'+PACENAME[c.pace]+'</span><span style="flex:1">'+c.cards.map(x=>sayCard(x.cd)+(x.mods.length?' <span class="muted">'+x.mods.join(', ')+'</span>':'')).join(' <i class="muted">into</i> ')+'</span><span class="muted">'+(c.t>=0?'+':'')+c.t+'</span></div>';});
+      h+='</div></div>';
+    });
+    el.innerHTML=h;
+  }catch(e){el.innerHTML='<div class="panel"><p style="color:var(--flag)">'+esc(e.message)+'</p><button class="btn" onclick="tab(\'lb\')">Back to leaderboard</button></div>';}
 }
 
 // ---------- Simulate ----------

@@ -12,14 +12,14 @@ const DEF={
   intoMin:5,recovery:3,stageCourage:3,stageLuck:1,cleanLuck:1,comRisk:0,comStam:1,comCo:0,serviceCo:3,stagesPerLeg:4,longLuck:2,nightOn:1,
   noMod:16,luckGood:6,luckAvg:3,luckBad:3,goodV:-2,badV:2,
   dwClose:4,dwWorse:3,dwTerminal:2,dwDead:1,terminalTime:10,deadTime:4,
-  dmgLoose:2,dmgNoFlat:4,dmgMax:6,dmgShortRepair:2,fixStam:2
+  nightLuck:0,dmgLoose:2,dmgNoFlat:4,dmgMax:6,dmgShortRepair:2,fixStam:2
 };
 const CFG_META=[
   ['Crew tokens (start / max)'],['stamina','Stamina'],['courage','Courage'],['luck','Luck'],
   ['Pace base time'],['base_safe','Safe'],['base_committed','Committed'],['base_flat','Flat Out'],
   ['Stage flow'],['intoMin','INTO on D6 ≥'],['recovery','Stamina regained per stage end'],['stageCourage','Courage regained every stage end'],['stageLuck','Luck regained every stage end'],['cleanLuck','Extra Luck for a clean stage'],['comStam','Committed: extra Stamina per card'],['comCo','Committed: extra Courage per card'],['comRisk','Committed risk: Luck card on D6 ≤ (0 = off)'],['serviceCo','Courage at short service'],['stagesPerLeg','Stages per leg (legs = stages ÷ this, rounded up)'],['longLuck','Luck at long service (end of leg)'],['nightOn','Night stages (1 = on, 0 = off)'],['noMod','Blank cards in modifier deck (34 real)'],
   ['Luck deck'],['luckGood','Good cards'],['luckAvg','Average cards'],['luckBad','Bad cards'],['goodV','Good result (time)'],['badV','Bad result (time)'],
-  ['Damage'],['dmgLoose','Damage that costs +1 time per card'],['dmgNoFlat','Damage that rules out Flat Out'],['dmgMax','Damage that retires the car'],['dmgShortRepair','Damage repaired at a short service'],['fixStam','Stamina per roadside fix (−1 Damage)'],
+  ['Night'],['nightLuck','Extra Luck cost for Flat Out at night'],['Damage'],['dmgLoose','Damage that costs +1 time per card'],['dmgNoFlat','Damage that rules out Flat Out'],['dmgMax','Damage that retires the car'],['dmgShortRepair','Damage repaired at a short service'],['fixStam','Stamina per roadside fix (−1 Damage)'],
   ['Death Wish deck'],['dwClose','Close Shave'],['dwWorse',"Could've Been Worse"],['dwTerminal','Heavy Off'],['dwDead','DEAD'],['terminalTime','Heavy Off time'],['deadTime','Time per event after DEAD']
 ];
 let CFG={...DEF};
@@ -72,7 +72,23 @@ const isWet=w=>w>=3;
 function surfLabel(sp){return sp[0]===sp[1]?SURF[sp[0]]:SURF[sp[0]]+'→'+SURF[sp[1]];}
 // Surface themes an event can set: '' (rolled), 'tarmac', 'gravel', 'snow', 'between', 'within'.
 export const THEMES={'':'Rolled at random',tarmac:'All tarmac',gravel:'All gravel',snow:'All snow',between:'Mixed between stages',within:'Mixed within stages'};
-let THEME='';
+let THEME='',DECK='';
+// Corner deck themes. grades: copies of [Acute,Hairpin,Square,1,2,3,4,5,6,Flat], straights, extra modifier copies, blank modifiers.
+export const DECKS={
+  '':{name:'Standard',grades:[4,4,4,4,4,4,4,4,4,4],straights:8,extra:[],blanks:null},
+  mountain:{name:'Mountain hairpins',grades:[4,8,6,6,5,4,3,2,1,1],straights:4,extra:['Narrow','Caution','Tightens','Over Crest','Don\'t Cut'],blanks:14},
+  fast:{name:'Fast and flowing',grades:[1,1,1,2,3,4,5,6,7,7],straights:6,extra:['Jump','Over Crest','Unseen','Long','Deceptive'],blanks:14},
+  rough:{name:'Rough roads',grades:[4,4,4,4,4,4,4,4,4,4],straights:8,extra:['Bump','Dip','Water Splash','Jump','Bump','Dip'],blanks:8},
+  twisty:{name:'Twisty tarmac',grades:[2,3,3,7,7,7,5,3,1,1],straights:2,extra:['Tightens','Narrow','Don\'t Cut','Opens','Caution'],blanks:16}
+};
+function deckFor(theme){
+  const d=DECKS[theme]||DECKS[''],track=[],mods=[...MODS,...MODS];
+  d.grades.forEach((n,gi)=>{for(let k=0;k<n;k++)track.push({gi});});
+  for(let k=0;k<d.straights;k++)track.push({gi:-1});
+  d.extra.forEach(nm=>{const m=MODS.find(x=>x.n===nm);if(m){mods.push(m,m);}});
+  const blanks=d.blanks==null?CFG.noMod:d.blanks;for(let k=0;k<blanks;k++)mods.push(null);
+  return {track,mods};
+}
 function newRally(){
   const stages=rnd(6)+6;
   // legs and services
@@ -112,8 +128,8 @@ function startStage(r){
   return L;
 }
 function drawCard(r){
-  const c={...pick(TRACK)};c.side=RT()<.5?'L':'R';c.mods=[];
-  const m=pick(MODDECK);if(m)c.mods.push(m);
+  const c={...pick(r.deck?r.deck.track:TRACK)};c.side=RT()<.5?'L':'R';c.mods=[];
+  const m=pick(r.deck?r.deck.mods:MODDECK);if(m)c.mods.push(m);
   if(r.track===3)c.mods.push(pick(MODS));
   return c;
 }
@@ -128,6 +144,16 @@ function addDmg(c,n,L){
   if(c.retired||c.dead)return;
   c.dmg=Math.min(CFG.dmgMax,c.dmg+n);
   if(c.dmg>=CFG.dmgMax){c.retired=true;L.push({t:'CAR WRECKED: Damage '+c.dmg+'. The crew retires from the rally.',k:'bad'});}
+}
+// Exact odds for the next stage start: weather shifts first, then the track shifts based on the NEW weather.
+export function forecast(r){
+  const w0=r.weather,wx={};
+  [[Math.max(0,w0-1),1/3],[w0,1/3],[Math.min(5,w0+1),1/3]].forEach(([w,p])=>wx[w]=(wx[w]||0)+p);
+  const IMP=[1,4/6,2/6,0,0,0],WOR=[0,0,0,2/6,4/6,1],tr={};
+  for(const w in wx){const p=wx[w],t=r.track,ti=Math.max(0,t-1),tw=Math.min(3,t+1);
+    const imp=IMP[w],wor=WOR[w];
+    tr[ti]=(tr[ti]||0)+p*imp;tr[tw]=(tr[tw]||0)+p*wor;tr[t]=(tr[t]||0)+p*(1-imp-wor);}
+  return {weather:wx,track:tr};
 }
 export const isOut=c=>c.dead||c.retired;
 function deathWish(c,L){
@@ -176,9 +202,9 @@ function applyEvent(r,cards,pace,dry){
       if(p==='flat')c.flat=true;
       if(!dry){
         if(comDraw)luckTxt=' · Committed gamble';
-        const lc=fpick(LUCK);
-        if(c.lu>=lc.cost){c.lu-=lc.cost;t+=lc.v;luckTxt=' · Luck card ('+lc.cost+'): '+(lc.k==='good'?'Good, '+lc.v+' time':lc.k==='bad'?'Bad, +'+lc.v+' time, +1 Damage':'Average');if(lc.k==='bad')hit+=1;}
-        else{luckTxt=' · Luck card needs '+lc.cost+': RAN OUT OF LUCK';c.luckOut++;dw=true;}
+        const lc=fpick(LUCK),lcost=lc.cost+(p==='flat'&&r.night[r.stage]?CFG.nightLuck:0);
+        if(c.lu>=lcost){c.lu-=lcost;t+=lc.v;luckTxt=' · Luck card ('+lcost+'): '+(lc.k==='good'?'Good, '+lc.v+' time':lc.k==='bad'?'Bad, +'+lc.v+' time, +1 Damage':'Average');if(lc.k==='bad')hit+=1;}
+        else{luckTxt=' · Luck card needs '+lcost+': RAN OUT OF LUCK';c.luckOut++;dw=true;}
       }
     }
     if(!dry){
@@ -281,7 +307,8 @@ export function createGame(seed,cfg,event){
   g.rt=mulberry32(hashStr(seed+'|track'));g.rf=mulberry32(hashStr(seed+'|fate'));
   CFG=g.cfg;buildDecks();g.deckCfg=g.cfg;RT=g.rt;RF=g.rf;
   THEME=(event&&THEMES[event.surface]!==undefined)?event.surface||'':'';
-  g.r=newRally();THEME='';
+  DECK=(event&&DECKS[event.deck])?event.deck:'';
+  g.r=newRally();THEME='';if(DECK)g.r.deck=deckFor(DECK);g.r.deckName=DECKS[DECK].name;DECK='';
   g.log.push({t:'Seed '+seed+' · '+g.r.stages+' stages in '+g.r.legs+' legs · '+PROFILES[g.r.profile]+' · '+WEATHER[g.r.weather]+' · '+TRACKC[g.r.track],k:'hd'});
   return g;
 }
@@ -326,7 +353,7 @@ export function preview(g,p){
   if(p==='flat'&&!pv.forced)bits.push('+ Luck card');
   if(p==='committed'&&!pv.forced&&CFG.comRisk>0&&g.ev.some(cd=>cd.mods.some(m=>m.rough||m.blind)))bits.push(CFG.comRisk+'-in-6 Luck card');
   if(pv.risk)bits.push('⚠ Death Wish');
-  return {txt:bits.join(' · '),risk:pv.risk,forced:pv.forced};
+  return {txt:bits.join(' · '),risk:pv.risk,forced:pv.forced,T:pv.T,ds,dc,dl};
 }
 
 // Re-drive a rally from seed + moves with the official rules. Used by the leaderboard Worker.

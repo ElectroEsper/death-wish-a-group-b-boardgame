@@ -56,7 +56,7 @@ th{color:var(--dust);font-weight:500;font-size:14px}
         <label for="evName">Name</label><input id="evName" class="inp" maxlength="60" placeholder="Shown to players, e.g. Rallye des Neiges">
         <label for="evSeed">Seed</label><div class="row"><input id="evSeed" class="inp" maxlength="60" placeholder="Blank = automatic weekly seed" style="flex:1"><button class="btn" onclick="randSeed()">Random</button></div>
         <label for="evSurf">Surface</label><select id="evSurf" class="inp"></select>
-        <span>Corner deck</span><span class="muted">Standard (themed decks to come)</span>
+        <label for="evDeck">Corner deck</label><select id="evDeck" class="inp"></select>
       </div>
       <p class="muted" id="preview" style="margin:12px 0 0"></p>
       <label class="row muted" style="margin-top:12px"><input type="checkbox" id="evClear" checked> Clear this week's leaderboard (old runs were on a different rally)</label>
@@ -78,12 +78,13 @@ th{color:var(--dust);font-weight:500;font-size:14px}
 window.addEventListener('error',e=>{const m=document.getElementById('loginMsg');if(m&&!window.signIn)m.textContent='Script error: '+(e.message||'a file failed to load')+'. Hard-refresh the page (Ctrl+Shift+R).';},true);
 </script>
 <script type="module">
-import * as E from './engine.js?v=680945fy';
-import {API_URL} from './site-config.js?v=680945fy';
+import * as E from './engine.js?v=aab7f50z';
+import {API_URL} from './site-config.js?v=aab7f50z';
 const API=(API_URL||'').replace(/\/$/,''),$=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let KEY='';try{KEY=sessionStorage.getItem('dw-admin')||'';}catch(e){}
 let week=E.isoWeek();
+Object.entries(E.DECKS).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v.name;$('evDeck').appendChild(o);});
 Object.entries(E.THEMES).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v;$('evSurf').appendChild(o);});
 
 async function call(path,body){
@@ -103,16 +104,16 @@ window.signIn=async()=>{
 };
 window.shift=d=>{const [y,w]=week.split('-W').map(Number);let nw=w+d,ny=y;if(nw<1){ny--;nw=52;}if(nw>53){ny++;nw=1;}week=ny+'-W'+String(nw).padStart(2,'0');load().catch(e=>say('runMsg',e.message));};
 function preview(){
-  const seed=$('evSeed').value.trim()||E.weeklySeed(week),g=E.createGame(seed,null,{surface:$('evSurf').value}),r=g.r;
+  const seed=$('evSeed').value.trim()||E.weeklySeed(week),g=E.createGame(seed,null,{surface:$('evSurf').value,deck:$('evDeck').value}),r=g.r;
   const surf=r.surf.map(sp=>E.surfLabel(sp)).join(', ');
-  $('preview').textContent='Preview: '+r.stages+' stages in '+r.legs+' legs, '+E.PROFILES[r.profile].toLowerCase()+'. Surfaces: '+surf+'. Starts '+E.WEATHER[r.weather].toLowerCase()+', track '+E.TRACKC[r.track].toLowerCase()+'.';
+  $('preview').textContent='Preview: '+r.deckName+' corners, '+r.stages+' stages in '+r.legs+' legs, '+E.PROFILES[r.profile].toLowerCase()+'. Surfaces: '+surf+'. Starts '+E.WEATHER[r.weather].toLowerCase()+', track '+E.TRACKC[r.track].toLowerCase()+'.';
 }
-['evSeed','evSurf'].forEach(id=>$(id).addEventListener('input',preview));
+['evSeed','evSurf','evDeck'].forEach(id=>$(id).addEventListener('input',preview));
 window.randSeed=()=>{$('evSeed').value=E.randomSeed();preview();};
 async function load(){
   const j=await call('/runs');
   $('wk').textContent='Week '+week+(week===E.isoWeek()?' (this week)':'');
-  $('evName').value=j.event.name||'';$('evSeed').value=j.event.custom?j.event.seed:'';$('evSurf').value=j.event.surface||'';preview();
+  $('evName').value=j.event.name||'';$('evSeed').value=j.event.custom?j.event.seed:'';$('evSurf').value=j.event.surface||'';$('evDeck').value=j.event.deck||'';preview();
   $('evMsg').textContent='';$('runMsg').textContent='';
   drawRuns(j.entries);
 }
@@ -131,7 +132,7 @@ window.clearAll=async()=>{
 window.saveEvent=async()=>{
   const clear=$('evClear').checked;
   if(clear&&!confirm('Save the rally settings and delete this week\'s runs?'))return;
-  try{const j=await call('/event',{name:$('evName').value.trim(),seed:$('evSeed').value.trim(),surface:$('evSurf').value,clear});say('evMsg','Saved. Players get '+(j.event.name||'the weekly rally')+' on seed '+j.event.seed+'.',true);if(clear)drawRuns([]);}
+  try{const j=await call('/event',{name:$('evName').value.trim(),seed:$('evSeed').value.trim(),surface:$('evSurf').value,deck:$('evDeck').value,clear});say('evMsg','Saved. Players get '+(j.event.name||'the weekly rally')+' on seed '+j.event.seed+'.',true);if(clear)drawRuns([]);}
   catch(e){say('evMsg',e.message);}
 };
 if(KEY){$('key').value=KEY;signIn();}

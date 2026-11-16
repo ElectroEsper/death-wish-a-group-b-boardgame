@@ -1,7 +1,9 @@
 // Death Wish leaderboard Worker.
 // Players submit a name + replay code. The Worker re-drives the rally with the shared engine,
 // so the stored time is the one the rules produce, never the one the player claims.
-import {replay,weeklySeed,isoWeek,RULES_VERSION,THEMES} from '../../engine.js';
+import {replay,weeklySeed,isoWeek,RULES_VERSION,THEMES,DECKS} from '../../engine.js';
+
+const POINTS=[25,18,15,12,10,8,6,4,2,1];
 
 const MAX_ENTRIES=500;
 const NAME_RE=/^[\p{L}\p{N} _.\-]{2,20}$/u;
@@ -9,7 +11,7 @@ const NAME_RE=/^[\p{L}\p{N} _.\-]{2,20}$/u;
 // ---------- Weekly event (set by the admin, otherwise defaults) ----------
 async function getEvent(env,week){
   const e=(await env.LB.get('event:'+week,'json'))||{};
-  return {week,name:e.name||'',seed:e.seed||weeklySeed(week),surface:e.surface||'',custom:!!e.seed,version:RULES_VERSION};
+  return {week,name:e.name||'',seed:e.seed||weeklySeed(week),surface:e.surface||'',deck:e.deck||'',custom:!!e.seed,version:RULES_VERSION};
 }
 async function clearWeek(env,week){
   let cursor;do{const l=await env.LB.list({prefix:'run:'+week+':',cursor});for(const k of l.keys)await env.LB.delete(k.name);cursor=l.list_complete?null:l.cursor;}while(cursor);
@@ -39,10 +41,11 @@ async function admin(req,url,env){
     return json(env,{ok:true,entries:list});
   }
   if(path==='/event'){
-    const name=String(b.name||'').slice(0,60),seed=String(b.seed||'').trim().slice(0,60),surface=String(b.surface||'');
+    const name=String(b.name||'').slice(0,60),seed=String(b.seed||'').trim().slice(0,60),surface=String(b.surface||''),deck=String(b.deck||'');
+    if(!DECKS[deck])return json(env,{error:'Unknown corner deck'},400);
     if(THEMES[surface]===undefined)return json(env,{error:'Unknown surface theme'},400);
     if(seed&&!/^[\w\-#.:]+$/.test(seed))return json(env,{error:'Seeds can use letters, numbers and - _ # . :'},400);
-    await env.LB.put('event:'+week,JSON.stringify({name,seed,surface,at:Date.now()}));
+    await env.LB.put('event:'+week,JSON.stringify({name,seed,surface,deck,at:Date.now()}));
     // Runs from the old rally can't be compared with the new one.
     if(b.clear!==false)await clearWeek(env,week);
     return json(env,{ok:true,event:await getEvent(env,week)});
@@ -106,6 +109,29 @@ async function submit(req,env){
   return json(env,{ok:true,time:res.time,rank,total:list.length});
 }
 
+// One run's replay, so players can watch how it was driven.
+async function runInfo(url,env){
+  const week=url.searchParams.get('week')||isoWeek(),name=String(url.searchParams.get('name')||'').toLowerCase();
+  if(!/^\d{4}-W\d{2}$/.test(week))return json(env,{error:'Bad week'},400);
+  const run=await env.LB.get('run:'+week+':'+name,'json');
+  if(!run)return json(env,{error:'No run found for that crew.'},404);
+  return json(env,{week,name:run.name,time:run.time,moves:run.moves,event:await getEvent(env,week)});
+}
+// Season: points for each week's top 10, added up across the year.
+async function season(url,env){
+  const year=String(url.searchParams.get('year')||isoWeek().slice(0,4));
+  if(!/^\d{4}$/.test(year))return json(env,{error:'Bad year'},400);
+  const crews={},weeks=[];let cursor;
+  do{const l=await env.LB.list({prefix:'lb:'+year+'-W',cursor});
+    for(const k of l.keys){const wk=k.name.slice(3),list=(await env.LB.get(k.name,'json'))||[];if(!list.length)continue;
+      const ev=(await env.LB.get('event:'+wk,'json'))||{};weeks.push({week:wk,name:ev.name||'',winner:list[0].name,crews:list.length});
+      list.forEach((e,i)=>{const id=e.name.toLowerCase(),c=crews[id]||(crews[id]={name:e.name,points:0,wins:0,podiums:0,weeks:0,best:99});
+        c.points+=POINTS[i]||0;c.weeks++;if(i===0)c.wins++;if(i<3)c.podiums++;c.best=Math.min(c.best,i+1);});}
+    cursor=l.list_complete?null:l.cursor;}while(cursor);
+  const table=Object.values(crews).sort((a,b)=>b.points-a.points||b.wins-a.wins||a.best-b.best);
+  return json(env,{year,points:POINTS,weeks:weeks.sort((a,b)=>a.week<b.week?1:-1),table});
+}
+
 async function leaderboard(url,env){
   const week=url.searchParams.get('week')||isoWeek();
   if(!/^\d{4}-W\d{2}$/.test(week))return json(env,{error:'Bad week'},400);
@@ -126,6 +152,8 @@ export default {
     if(req.method==='OPTIONS')return new Response(null,{headers:cors(env)});
     if(req.method==='GET'&&url.pathname==='/leaderboard')return leaderboard(url,env);
     if(req.method==='GET'&&url.pathname==='/event'){const w=url.searchParams.get('week')||isoWeek();if(!/^\d{4}-W\d{2}$/.test(w))return json(env,{error:'Bad week'},400);return json(env,await getEvent(env,w));}
+    if(req.method==='GET'&&url.pathname==='/run')return runInfo(url,env);
+    if(req.method==='GET'&&url.pathname==='/season')return season(url,env);
     if(url.pathname.startsWith('/admin/'))return admin(req,url,env);
     if(req.method==='POST'&&url.pathname==='/submit')return submit(req,env);
     if(req.method==='GET'&&url.pathname==='/')return json(env,{ok:true,service:'death-wish-leaderboard',week:isoWeek(),version:RULES_VERSION});

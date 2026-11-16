@@ -39,6 +39,7 @@ var DEF = {
   dwDead: 1,
   terminalTime: 10,
   deadTime: 4,
+  nightLuck: 0,
   dmgLoose: 2,
   dmgNoFlat: 4,
   dmgMax: 6,
@@ -129,6 +130,31 @@ var grip = /* @__PURE__ */ __name((ty, su, wet) => GRIP[ty][su][wet ? 1 : 0], "g
 var isWet = /* @__PURE__ */ __name((w) => w >= 3, "isWet");
 var THEMES = { "": "Rolled at random", tarmac: "All tarmac", gravel: "All gravel", snow: "All snow", between: "Mixed between stages", within: "Mixed within stages" };
 var THEME = "";
+var DECK = "";
+var DECKS = {
+  "": { name: "Standard", grades: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4], straights: 8, extra: [], blanks: null },
+  mountain: { name: "Mountain hairpins", grades: [4, 8, 6, 6, 5, 4, 3, 2, 1, 1], straights: 4, extra: ["Narrow", "Caution", "Tightens", "Over Crest", "Don't Cut"], blanks: 14 },
+  fast: { name: "Fast and flowing", grades: [1, 1, 1, 2, 3, 4, 5, 6, 7, 7], straights: 6, extra: ["Jump", "Over Crest", "Unseen", "Long", "Deceptive"], blanks: 14 },
+  rough: { name: "Rough roads", grades: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4], straights: 8, extra: ["Bump", "Dip", "Water Splash", "Jump", "Bump", "Dip"], blanks: 8 },
+  twisty: { name: "Twisty tarmac", grades: [2, 3, 3, 7, 7, 7, 5, 3, 1, 1], straights: 2, extra: ["Tightens", "Narrow", "Don't Cut", "Opens", "Caution"], blanks: 16 }
+};
+function deckFor(theme) {
+  const d = DECKS[theme] || DECKS[""], track = [], mods = [...MODS, ...MODS];
+  d.grades.forEach((n, gi) => {
+    for (let k = 0; k < n; k++) track.push({ gi });
+  });
+  for (let k = 0; k < d.straights; k++) track.push({ gi: -1 });
+  d.extra.forEach((nm) => {
+    const m = MODS.find((x) => x.n === nm);
+    if (m) {
+      mods.push(m, m);
+    }
+  });
+  const blanks = d.blanks == null ? CFG.noMod : d.blanks;
+  for (let k = 0; k < blanks; k++) mods.push(null);
+  return { track, mods };
+}
+__name(deckFor, "deckFor");
 function newRally() {
   const stages = rnd(6) + 6;
   const legs = Math.ceil(stages / CFG.stagesPerLeg), svc = {}, legOf = [], night = [], legSpan = [];
@@ -213,10 +239,10 @@ function startStage(r) {
 }
 __name(startStage, "startStage");
 function drawCard(r) {
-  const c = { ...pick(TRACK) };
+  const c = { ...pick(r.deck ? r.deck.track : TRACK) };
   c.side = RT() < 0.5 ? "L" : "R";
   c.mods = [];
-  const m = pick(MODDECK);
+  const m = pick(r.deck ? r.deck.mods : MODDECK);
   if (m) c.mods.push(m);
   if (r.track === 3) c.mods.push(pick(MODS));
   return c;
@@ -345,14 +371,14 @@ function applyEvent(r, cards, pace, dry) {
       if (p === "flat") c.flat = true;
       if (!dry) {
         if (comDraw) luckTxt = " \xB7 Committed gamble";
-        const lc = fpick(LUCK);
-        if (c.lu >= lc.cost) {
-          c.lu -= lc.cost;
+        const lc = fpick(LUCK), lcost = lc.cost + (p === "flat" && r.night[r.stage] ? CFG.nightLuck : 0);
+        if (c.lu >= lcost) {
+          c.lu -= lcost;
           t += lc.v;
-          luckTxt = " \xB7 Luck card (" + lc.cost + "): " + (lc.k === "good" ? "Good, " + lc.v + " time" : lc.k === "bad" ? "Bad, +" + lc.v + " time, +1 Damage" : "Average");
+          luckTxt = " \xB7 Luck card (" + lcost + "): " + (lc.k === "good" ? "Good, " + lc.v + " time" : lc.k === "bad" ? "Bad, +" + lc.v + " time, +1 Damage" : "Average");
           if (lc.k === "bad") hit += 1;
         } else {
-          luckTxt = " \xB7 Luck card needs " + lc.cost + ": RAN OUT OF LUCK";
+          luckTxt = " \xB7 Luck card needs " + lcost + ": RAN OUT OF LUCK";
           c.luckOut++;
           dw = true;
         }
@@ -469,8 +495,12 @@ function createGame(seed, cfg, event) {
   RT = g.rt;
   RF = g.rf;
   THEME = event && THEMES[event.surface] !== void 0 ? event.surface || "" : "";
+  DECK = event && DECKS[event.deck] ? event.deck : "";
   g.r = newRally();
   THEME = "";
+  if (DECK) g.r.deck = deckFor(DECK);
+  g.r.deckName = DECKS[DECK].name;
+  DECK = "";
   g.log.push({ t: "Seed " + seed + " \xB7 " + g.r.stages + " stages in " + g.r.legs + " legs \xB7 " + PROFILES[g.r.profile] + " \xB7 " + WEATHER[g.r.weather] + " \xB7 " + TRACKC[g.r.track], k: "hd" });
   return g;
 }
@@ -563,11 +593,12 @@ function replay(seed, moves, event) {
 __name(replay, "replay");
 
 // src/index.js
+var POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 var MAX_ENTRIES = 500;
 var NAME_RE = /^[\p{L}\p{N} _.\-]{2,20}$/u;
 async function getEvent(env, week) {
   const e = await env.LB.get("event:" + week, "json") || {};
-  return { week, name: e.name || "", seed: e.seed || weeklySeed(week), surface: e.surface || "", custom: !!e.seed, version: RULES_VERSION };
+  return { week, name: e.name || "", seed: e.seed || weeklySeed(week), surface: e.surface || "", deck: e.deck || "", custom: !!e.seed, version: RULES_VERSION };
 }
 __name(getEvent, "getEvent");
 async function clearWeek(env, week) {
@@ -610,10 +641,11 @@ async function admin(req, url, env) {
     return json(env, { ok: true, entries: list });
   }
   if (path === "/event") {
-    const name = String(b.name || "").slice(0, 60), seed = String(b.seed || "").trim().slice(0, 60), surface = String(b.surface || "");
+    const name = String(b.name || "").slice(0, 60), seed = String(b.seed || "").trim().slice(0, 60), surface = String(b.surface || ""), deck = String(b.deck || "");
+    if (!DECKS[deck]) return json(env, { error: "Unknown corner deck" }, 400);
     if (THEMES[surface] === void 0) return json(env, { error: "Unknown surface theme" }, 400);
     if (seed && !/^[\w\-#.:]+$/.test(seed)) return json(env, { error: "Seeds can use letters, numbers and - _ # . :" }, 400);
-    await env.LB.put("event:" + week, JSON.stringify({ name, seed, surface, at: Date.now() }));
+    await env.LB.put("event:" + week, JSON.stringify({ name, seed, surface, deck, at: Date.now() }));
     if (b.clear !== false) await clearWeek(env, week);
     return json(env, { ok: true, event: await getEvent(env, week) });
   }
@@ -680,6 +712,41 @@ async function submit(req, env) {
   return json(env, { ok: true, time: res.time, rank, total: list.length });
 }
 __name(submit, "submit");
+async function runInfo(url, env) {
+  const week = url.searchParams.get("week") || isoWeek(), name = String(url.searchParams.get("name") || "").toLowerCase();
+  if (!/^\d{4}-W\d{2}$/.test(week)) return json(env, { error: "Bad week" }, 400);
+  const run = await env.LB.get("run:" + week + ":" + name, "json");
+  if (!run) return json(env, { error: "No run found for that crew." }, 404);
+  return json(env, { week, name: run.name, time: run.time, moves: run.moves, event: await getEvent(env, week) });
+}
+__name(runInfo, "runInfo");
+async function season(url, env) {
+  const year = String(url.searchParams.get("year") || isoWeek().slice(0, 4));
+  if (!/^\d{4}$/.test(year)) return json(env, { error: "Bad year" }, 400);
+  const crews = {}, weeks = [];
+  let cursor;
+  do {
+    const l = await env.LB.list({ prefix: "lb:" + year + "-W", cursor });
+    for (const k of l.keys) {
+      const wk = k.name.slice(3), list = await env.LB.get(k.name, "json") || [];
+      if (!list.length) continue;
+      const ev = await env.LB.get("event:" + wk, "json") || {};
+      weeks.push({ week: wk, name: ev.name || "", winner: list[0].name, crews: list.length });
+      list.forEach((e, i) => {
+        const id = e.name.toLowerCase(), c = crews[id] || (crews[id] = { name: e.name, points: 0, wins: 0, podiums: 0, weeks: 0, best: 99 });
+        c.points += POINTS[i] || 0;
+        c.weeks++;
+        if (i === 0) c.wins++;
+        if (i < 3) c.podiums++;
+        c.best = Math.min(c.best, i + 1);
+      });
+    }
+    cursor = l.list_complete ? null : l.cursor;
+  } while (cursor);
+  const table = Object.values(crews).sort((a, b) => b.points - a.points || b.wins - a.wins || a.best - b.best);
+  return json(env, { year, points: POINTS, weeks: weeks.sort((a, b) => a.week < b.week ? 1 : -1), table });
+}
+__name(season, "season");
 async function leaderboard(url, env) {
   const week = url.searchParams.get("week") || isoWeek();
   if (!/^\d{4}-W\d{2}$/.test(week)) return json(env, { error: "Bad week" }, 400);
@@ -712,6 +779,8 @@ var index_default = {
       if (!/^\d{4}-W\d{2}$/.test(w)) return json(env, { error: "Bad week" }, 400);
       return json(env, await getEvent(env, w));
     }
+    if (req.method === "GET" && url.pathname === "/run") return runInfo(url, env);
+    if (req.method === "GET" && url.pathname === "/season") return season(url, env);
     if (url.pathname.startsWith("/admin/")) return admin(req, url, env);
     if (req.method === "POST" && url.pathname === "/submit") return submit(req, env);
     if (req.method === "GET" && url.pathname === "/") return json(env, { ok: true, service: "death-wish-leaderboard", week: isoWeek(), version: RULES_VERSION });

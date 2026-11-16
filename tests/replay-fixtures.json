@@ -1,0 +1,116 @@
+{
+ "version": "0.5",
+ "cases": [
+  {
+   "seed": "FIX-A",
+   "event": {},
+   "moves": "1ccccccccccccc0ccccccccccccc3cccccccccccc1cccccccc",
+   "time": 193,
+   "stages": [
+    10,
+    38,
+    32,
+    21,
+    27,
+    39,
+    12,
+    14
+   ]
+  },
+  {
+   "seed": "FIX-B",
+   "event": {
+    "surface": "snow"
+   },
+   "moves": "1cfsccfscfscc3sccfccfsccf0ccfsccsccscc",
+   "time": 228,
+   "stages": [
+    46,
+    22,
+    7,
+    30,
+    57,
+    32,
+    34
+   ]
+  },
+  {
+   "seed": "FIX-C",
+   "event": {
+    "surface": "within",
+    "deck": "rough"
+   },
+   "moves": "1csfcsffcsf1csffcrfcsff2sffcsfcsf1csffcsf20",
+   "time": 292,
+   "stages": [
+    15,
+    37,
+    4,
+    15,
+    12,
+    23,
+    24,
+    42,
+    32,
+    20,
+    28,
+    40
+   ]
+  },
+  {
+   "seed": "FIX-D",
+   "event": {
+    "deck": "mountain"
+   },
+   "moves": "1cfcffcfcfcfcf0fcfrcfcfcf0fcfccfcfcffcfcf",
+   "time": 251,
+   "stages": [
+    7,
+    68,
+    14,
+    58,
+    16,
+    54,
+    34
+   ]
+  },
+  {
+   "seed": "FIX-E",
+   "event": {
+    "surface": "tarmac",
+    "deck": "twisty"
+   },
+   "moves": "1csccscsccsccscsccsc3sccscsccsccccsccs3csccscsccccsccs",
+   "time": 269,
+   "stages": [
+    26,
+    32,
+    30,
+    21,
+    41,
+    27,
+    23,
+    26,
+    43
+   ]
+  },
+  {
+   "seed": "FIX-F",
+   "event": {
+    "deck": "fast"
+   },
+   "moves": "1ffffffffffff3fffffffffff0fffff3",
+   "time": 219,
+   "stages": [
+    3,
+    40,
+    27,
+    57,
+    0,
+    36,
+    32,
+    24
+   ]
+  }
+ ]
+}

@@ -74,3 +74,7 @@ ES modules don't load from `file://`. From the repo root: `npx serve .` and open
 It needs a secret on the Worker: Cloudflare dashboard → your Worker → **Settings → Variables and Secrets → Add**, type *Secret*, name `ADMIN_KEY`, value a long password (12+ characters). Then sign in on the admin page with that password.
 
 Changing a week's seed or surface makes it a different rally, so by default saving also clears that week's runs.
+
+## Replay check
+
+`tests/check-replays.mjs` replays saved runs on every push (GitHub Actions, *Replay check*). It fails if game results change without `RULES_VERSION` being bumped, or if `worker/dashboard-worker.js` wasn't rebuilt. After a deliberate rules change: bump the version, rebuild the Worker file, then run `node tests/check-replays.mjs --update`.
