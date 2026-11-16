@@ -7,7 +7,7 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // ../engine.js
-var RULES_VERSION = "0.4";
+var RULES_VERSION = "0.5";
 var DEF = {
   stamina: 10,
   courage: 8,
@@ -38,7 +38,12 @@ var DEF = {
   dwTerminal: 2,
   dwDead: 1,
   terminalTime: 10,
-  deadTime: 4
+  deadTime: 4,
+  dmgLoose: 2,
+  dmgNoFlat: 4,
+  dmgMax: 6,
+  dmgShortRepair: 2,
+  fixStam: 2
 };
 var CFG = { ...DEF };
 var GRADES = ["Acute", "Hairpin", "Square", "1", "2", "3", "4", "5", "6", "Flat"];
@@ -173,7 +178,7 @@ function newRally() {
     left: 0,
     len: 0,
     stageTimes: [],
-    crew: { tyre: 2, st: CFG.stamina, co: CFG.courage, lu: CFG.luck, time: 0, dw: 0, dwLog: [], dead: false, terminal: false, flat: false, stageTime: 0, fatigue: 0, shaken: 0, flats: 0, luckOut: 0 }
+    crew: { tyre: 2, st: CFG.stamina, co: CFG.courage, lu: CFG.luck, time: 0, dw: 0, dwLog: [], dead: false, retired: false, dmg: 0, fixes: 0, terminal: false, flat: false, stageTime: 0, fatigue: 0, shaken: 0, flats: 0, luckOut: 0 }
   };
 }
 __name(newRally, "newRally");
@@ -224,24 +229,37 @@ function cardName(c) {
   return c.gi < 0 ? "Straight" : c.side + " " + GRADES[c.gi];
 }
 __name(cardName, "cardName");
+function addDmg(c, n, L) {
+  if (c.retired || c.dead) return;
+  c.dmg = Math.min(CFG.dmgMax, c.dmg + n);
+  if (c.dmg >= CFG.dmgMax) {
+    c.retired = true;
+    L.push({ t: "CAR WRECKED: Damage " + c.dmg + ". The crew retires from the rally.", k: "bad" });
+  }
+}
+__name(addDmg, "addDmg");
+var isOut = /* @__PURE__ */ __name((c) => c.dead || c.retired, "isOut");
 function deathWish(c, L) {
   c.dw++;
   const k = fpick(DW);
   c.dwLog.push(k);
   if (k === "close") {
     c.co = Math.max(0, c.co - 2);
-    L.push({ t: "DEATH WISH: Close Shave (\u22122 Courage)", k: "bad" });
+    L.push({ t: "DEATH WISH: Close Shave (\u22122 Courage, +1 Damage)", k: "bad" });
+    addDmg(c, 1, L);
     return 0;
   }
   if (k === "worse") {
     c.co = Math.max(0, c.co - 2);
-    L.push({ t: "DEATH WISH: Could've Been Worse (+3 time, \u22122 Courage)", k: "bad" });
+    L.push({ t: "DEATH WISH: Could've Been Worse (+3 time, \u22122 Courage, +2 Damage)", k: "bad" });
+    addDmg(c, 2, L);
     return 3;
   }
   if (k === "terminal") {
     c.co = 0;
     c.terminal = true;
-    L.push({ t: "DEATH WISH: Terminal Crash (+" + CFG.terminalTime + " time, Courage to 0, Safe for rest of stage)", k: "bad" });
+    L.push({ t: "DEATH WISH: Heavy Off (+" + CFG.terminalTime + " time, Courage to 0, +3 Damage, Safe for rest of stage)", k: "bad" });
+    addDmg(c, 3, L);
     return CFG.terminalTime;
   }
   c.dead = true;
@@ -255,15 +273,18 @@ function applyEvent(r, cards, pace, dry) {
   const L = [];
   let risk = false, forced = null;
   cards.forEach((card, i) => {
-    if (c.dead) {
+    if (c.dead || c.retired) {
       T += CFG.deadTime;
       return;
     }
     const fat = c.st <= 0, shaken = c.co <= 0;
     let p = pace;
     if (c.terminal || fat || shaken) {
-      if (p !== "safe") forced = c.terminal ? "Terminal Crash" : fat ? "Fatigued" : "Shaken";
+      if (p !== "safe") forced = c.terminal ? "Heavy Off" : fat ? "Fatigued" : "Shaken";
       p = "safe";
+    } else if (p === "flat" && c.dmg >= CFG.dmgNoFlat) {
+      forced = "Damaged car";
+      p = "committed";
     }
     if (!dry) {
       if (fat) c.fatigue++;
@@ -272,6 +293,7 @@ function applyEvent(r, cards, pace, dry) {
     }
     let t = CFG["base_" + p];
     if (fat) t += 1;
+    if (c.dmg >= CFG.dmgLoose) t += 1;
     const sp = r.surf[r.stage - 1] || [1, 1], su = r.left - i > r.len / 2 ? sp[0] : sp[1], gr = grip(c.tyre, su, isWet(r.weather));
     t += gr;
     let gs = 0, up = 0;
@@ -312,7 +334,8 @@ function applyEvent(r, cards, pace, dry) {
         risk = true;
       }
     }
-    let luckTxt = "";
+    let luckTxt = "", hit = 0;
+    if (p === "flat" && r.track >= 2 && card.mods.some((m) => m.rough) && !dry) hit += 1;
     const hazard = card.mods.some((m) => m.rough || m.blind);
     const comDraw = p === "committed" && CFG.comRisk > 0 && hazard && !dry && frnd(6) <= CFG.comRisk;
     if (p === "flat" || comDraw) {
@@ -323,7 +346,8 @@ function applyEvent(r, cards, pace, dry) {
         if (c.lu >= lc.cost) {
           c.lu -= lc.cost;
           t += lc.v;
-          luckTxt = " \xB7 Luck card (" + lc.cost + "): " + (lc.k === "good" ? "Good, " + lc.v + " time" : lc.k === "bad" ? "Bad, +" + lc.v + " time" : "Average");
+          luckTxt = " \xB7 Luck card (" + lc.cost + "): " + (lc.k === "good" ? "Good, " + lc.v + " time" : lc.k === "bad" ? "Bad, +" + lc.v + " time, +1 Damage" : "Average");
+          if (lc.k === "bad") hit += 1;
         } else {
           luckTxt = " \xB7 Luck card needs " + lc.cost + ": RAN OUT OF LUCK";
           c.luckOut++;
@@ -332,12 +356,16 @@ function applyEvent(r, cards, pace, dry) {
       }
     }
     if (!dry) {
-      const parts = [cardName(card) + (card.mods.length ? " " + card.mods.map((m) => m.n).join(", ") : "") + (i === 1 ? " (INTO)" : "") + (gr ? " \xB7 " + SURF[su] + (gr === 2 ? " NO GRIP" : " poor grip") : "") + " \xB7 " + p.toUpperCase() + " \xB7 +" + t + " time"];
+      const parts = [cardName(card) + (card.mods.length ? " " + card.mods.map((m) => m.n).join(", ") : "") + (i === 1 ? " (INTO)" : "") + (gr ? " \xB7 " + SURF[su] + (gr === 2 ? " NO GRIP" : " poor grip") : "") + " \xB7 " + p.toUpperCase() + " \xB7 " + (t < 0 ? "\u2212" + -t : "+" + t) + " time"];
       if (stam + s2) parts.push("\u2212" + (stam + s2) + " Stam");
       if (co) parts.push((co > 0 ? "\u2212" : "+") + Math.abs(co) + " Cour");
       if (lu) parts.push("\u2212" + lu + " Luck");
       L.push({ t: parts.join(" \xB7 ") + luckTxt, k: luckTxt.includes("Good") ? "good" : luckTxt.includes("Bad") || luckTxt.includes("RAN") ? "bad" : "" });
-      if (dw) t += deathWish(c, L);
+      if (hit) {
+        if (!luckTxt.includes("Bad")) L.push({ t: "Hit hard on a rough track: +" + hit + " Damage", k: "bad" });
+        addDmg(c, hit, L);
+      }
+      if (dw && !c.retired) t += deathWish(c, L);
     }
     T += t;
   });
@@ -350,7 +378,7 @@ function applyEvent(r, cards, pace, dry) {
 __name(applyEvent, "applyEvent");
 function endStage(r) {
   const c = r.crew, L = [];
-  if (!c.dead) {
+  if (!c.dead && !c.retired) {
     if (r.night[r.stage]) {
       c.st = Math.max(0, c.st - 1);
       L.push((r.night[r.stage] === "dawn" ? "Dawn" : "Night") + " stage upkeep: \u22121 Stamina");
@@ -376,11 +404,14 @@ function endStage(r) {
       c.st = CFG.stamina;
       c.co = CFG.courage;
       c.lu = Math.min(CFG.luck, c.lu + CFG.longLuck);
-      L.push("LONG SERVICE, end of leg " + r.legOf[r.stage] + ": Stamina and Courage full, +" + CFG.longLuck + " Luck");
+      c.dmg = 0;
+      L.push("LONG SERVICE, end of leg " + r.legOf[r.stage] + ": car fully repaired, Stamina and Courage full, +" + CFG.longLuck + " Luck");
     } else if (sv === "short" && r.stage < r.stages) {
       c.st = CFG.stamina;
       c.co = Math.min(CFG.courage, c.co + CFG.serviceCo);
-      L.push("SERVICE: Stamina restored, +" + CFG.serviceCo + " Courage");
+      const fx = Math.min(c.dmg, CFG.dmgShortRepair);
+      c.dmg -= fx;
+      L.push("SERVICE: Stamina restored, +" + CFG.serviceCo + " Courage" + (fx ? ", " + fx + " Damage repaired" : ""));
     }
   }
   const st = Math.max(0, c.stageTime);
@@ -389,6 +420,19 @@ function endStage(r) {
   return L;
 }
 __name(endStage, "endStage");
+function canFix(r) {
+  const c = r.crew;
+  return !isOut(c) && c.dmg > 0 && c.st >= CFG.fixStam && r.stage < r.stages;
+}
+__name(canFix, "canFix");
+function roadsideFix(r, L) {
+  const c = r.crew;
+  c.st -= CFG.fixStam;
+  c.dmg -= 1;
+  c.fixes++;
+  L.push({ t: "Roadside fix: \u2212" + CFG.fixStam + " Stamina, \u22121 Damage", k: "good" });
+}
+__name(roadsideFix, "roadsideFix");
 function isoWeek(d = /* @__PURE__ */ new Date()) {
   const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const day = t.getUTCDay() || 7;
@@ -441,6 +485,13 @@ function continueStage(g) {
   beginStage(g);
 }
 __name(continueStage, "continueStage");
+function fixCar(g) {
+  use(g);
+  if (!(g.phase === "stageEnd" || g.phase === "tyres") || !canFix(g.r)) throw new Error("Can't fix the car now");
+  g.moves += "r";
+  roadsideFix(g.r, g.log);
+}
+__name(fixCar, "fixCar");
 function choosePace(g, p) {
   use(g);
   if (g.phase !== "choose") throw new Error("No card to drive");
@@ -463,7 +514,7 @@ function nextEvent(g) {
     finishStage(g);
     return;
   }
-  if (g.r.crew.dead) {
+  if (isOut(g.r.crew)) {
     while (g.r.left > 0) applyEvent(g.r, drawEvent(g.r), "safe", false);
     finishStage(g);
     return;
@@ -480,9 +531,16 @@ function finishStage(g) {
 }
 __name(finishStage, "finishStage");
 function replay(seed, moves) {
-  if (typeof moves !== "string" || !/^[0-3scf]{1,2000}$/.test(moves)) return { ok: false, error: "Bad replay code" };
+  if (typeof moves !== "string" || !/^[0-3scfr]{1,2000}$/.test(moves)) return { ok: false, error: "Bad replay code" };
   const g = createGame(seed);
   for (const ch of moves) {
+    if (ch === "r") {
+      if ((g.phase === "stageEnd" || g.phase === "tyres") && canFix(g.r)) {
+        fixCar(g);
+        continue;
+      }
+      return { ok: false, error: "Repair not allowed there" };
+    }
     while (g.phase === "stageEnd") continueStage(g);
     if (g.phase === "tyres") {
       if (!/[0-3]/.test(ch)) return { ok: false, error: "Expected a tyre choice" };
@@ -495,7 +553,7 @@ function replay(seed, moves) {
   while (g.phase === "stageEnd") continueStage(g);
   if (g.phase !== "done") return { ok: false, error: "Rally not finished" };
   const c = g.r.crew;
-  return { ok: true, time: c.time, dead: c.dead, deathWishes: c.dw, stages: g.r.stageTimes };
+  return { ok: true, time: c.time, dead: c.dead, retired: c.retired, deathWishes: c.dw, stages: g.r.stageTimes };
 }
 __name(replay, "replay");
 
@@ -547,7 +605,7 @@ async function submit(req, env) {
   if (await env.LB.get("run:" + week + ":" + lower)) return json(env, { error: "You already submitted a run for " + week + "." }, 409);
   const res = replay(weeklySeed(week), String(b.moves || ""));
   if (!res.ok) return json(env, { error: "Replay rejected: " + res.error }, 400);
-  const entry = { name, time: res.time, dw: res.deathWishes, dead: res.dead, at: Date.now() };
+  const entry = { name, time: res.time, dw: res.deathWishes, dead: res.dead, retired: !!res.retired, at: Date.now() };
   await env.LB.put("run:" + week + ":" + lower, JSON.stringify({ ...entry, moves: b.moves }));
   const list = await env.LB.get("lb:" + week, "json") || [];
   list.push(entry);

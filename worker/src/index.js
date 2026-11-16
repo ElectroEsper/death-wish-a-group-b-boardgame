@@ -50,7 +50,7 @@ async function submit(req,env){
   const res=replay(weeklySeed(week),String(b.moves||''));
   if(!res.ok)return json(env,{error:'Replay rejected: '+res.error},400);
 
-  const entry={name,time:res.time,dw:res.deathWishes,dead:res.dead,at:Date.now()};
+  const entry={name,time:res.time,dw:res.deathWishes,dead:res.dead,retired:!!res.retired,at:Date.now()};
   await env.LB.put('run:'+week+':'+lower,JSON.stringify({...entry,moves:b.moves}));
   const list=(await env.LB.get('lb:'+week,'json'))||[];
   list.push(entry);
