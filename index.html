@@ -268,8 +268,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=9969fd0x';
-import {API_URL} from './site-config.js?v=9969fd0x';
+import * as E from './engine.js?v=680945fy';
+import {API_URL} from './site-config.js?v=680945fy';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -443,9 +443,16 @@ function home(){
   return h;
 }
 // ---------- Live standings: compare your stage-by-stage total with every submitted run ----------
+// The server is the truth about whether you've submitted this week (an admin may have deleted your run).
+function syncSubmitted(week,entries){
+  const me=(store.get('dw-name')||'').toLowerCase(),key='dw-sub-'+week,had=store.get(key)||'';
+  const mine=me&&entries.find(e=>e.name.toLowerCase()===me),now=mine?mine.time+' as '+mine.name:'';
+  if(now!==had){store.set(key,now);return true;}
+  return false;
+}
 async function loadField(g){
   if(!API)return;
-  try{const j=await (await fetch(API+'/leaderboard?week='+g.week)).json();g.field=(j.entries||[]).filter(e=>e.stages&&e.stages.length);if(G===g&&G.phase!=='choose')render();}catch(e){}
+  try{const j=await (await fetch(API+'/leaderboard?week='+g.week)).json();if(syncSubmitted(g.week,j.entries||[])&&G===g&&G.phase==='done')render();g.field=(j.entries||[]).filter(e=>e.stages&&e.stages.length);if(G===g&&G.phase!=='choose')render();}catch(e){}
 }
 function standings(g,final){
   if(!g.ranked||!API)return '';
@@ -467,6 +474,7 @@ async function loadMini(){
   if(!API||!$('miniLb'))return;
   try{
     const j=await (await fetch(API+'/leaderboard?week='+WEEK)).json(),e=(j.entries||[]).slice(0,5);
+    if(syncSubmitted(WEEK,j.entries||[])&&!G){render();return;}
     $('miniLb').innerHTML=e.length?'<table class="mini">'+e.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td><b>'+x.time+'</b></td></tr>').join('')+'</table><p style="margin:10px 0 0"><button class="btn" onclick="tab(\'lb\')">Full leaderboard</button></p>':'No runs yet this week. Be the first.';
   }catch(e){$('miniLb').textContent='Couldn\'t reach the leaderboard.';}
 }
@@ -541,7 +549,7 @@ async function loadLb(){
   el.innerHTML=head+'<p class="muted" style="margin-top:12px">Loading…</p></div>';
   try{
     const j=await (await fetch(API+'/leaderboard?week='+encodeURIComponent(lbWeek))).json(),e=j.entries||[];
-    const me=(store.get('dw-name')||'').toLowerCase(),best=e.length?e[0].time:0;
+    syncSubmitted(lbWeek,e);const me=(store.get('dw-name')||'').toLowerCase(),best=e.length?e[0].time:0;
     let t='<div class="scroll" style="margin-top:12px"><table><tr><th>Pos</th><th>Crew</th><th>Time</th><th>Gap</th><th>Death Wishes</th></tr>';
     e.forEach((x,i)=>{t+='<tr class="'+(x.name.toLowerCase()===me?'me':'')+'"><td>'+(i+1)+'</td><td>'+esc(x.name)+(x.dead?' <span style="color:var(--flag)" title="Crew died">†</span>':x.retired?' <span style="color:var(--lamp)" title="Car wrecked">✕</span>':'')+'</td><td><b>'+x.time+'</b></td><td>'+(i?'+'+(x.time-best):'')+'</td><td>'+x.dw+'</td></tr>';});
     t+='</table></div>';
