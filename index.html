@@ -3,100 +3,227 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1b2229">
 <title>Death Wish: A Group B Rally Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;1,500&family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#14130f;--card:#1f1d18;--ink:#f1ece0;--mute:#a59d8c;--acc:#e8b931;--red:#e06a52;--grn:#7cc47c;--line:#34302a;--chip:#2a2721}
+/* Palette: night asphalt, selective-yellow lamp light, and the stage surfaces themselves. */
+:root{
+  --asphalt:#1b2229;   /* page */
+  --road:#232c35;      /* panels */
+  --kerb:#34404c;      /* lines, empty segments */
+  --dust:#9aa6b2;      /* secondary text */
+  --chalk:#eef1f3;     /* primary text */
+  --lamp:#ffc20e;      /* selective yellow: actions, the note, focus */
+  --flag:#e2382b;      /* danger, Death Wish */
+  --clear:#6cc58a;     /* recovery, verified */
+  --s-tarmac:#5d6873;--s-gravel:#b78f5a;--s-snow:#e4ecf2;
+  --cond:'Barlow Condensed',system-ui,sans-serif;
+  --body:'Barlow',system-ui,sans-serif;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
-header{padding:16px 16px 4px;max-width:720px;margin:0 auto}
-h1{font-size:20px;margin:0;letter-spacing:.02em}h1 span{color:var(--acc)}
-h2{font-size:16px;margin:0 0 8px}
-.sub{color:var(--mute);font-size:13px;margin-top:2px}
-.tabs{display:flex;gap:6px;padding:10px 16px;position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1px solid var(--line)}
-.tabs button{flex:1}
-button{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;cursor:pointer}
-button:disabled{opacity:.4;cursor:default}
-button.on{border-color:var(--acc);color:var(--acc)}
-button.primary{background:var(--acc);color:#1a1a1a;border-color:var(--acc);font-weight:600}
-main{padding:12px 16px 48px;max-width:720px;margin:0 auto}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
-.chips span{display:inline-block;background:var(--chip);border-radius:999px;padding:3px 10px;margin:2px 4px 2px 0;font-size:13px;color:var(--mute)}
-.chips span b{color:var(--ink);font-weight:600}
-.tok{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
-.tok div{background:var(--chip);border-radius:10px;padding:8px 4px}
-.tok b{display:block;font-size:22px}.tok small{color:var(--mute);font-size:12px}
-.tok .zero b{color:var(--red)}
-.note{font-size:30px;font-weight:800;letter-spacing:.03em;line-height:1.1}
-.note .into{font-size:14px;color:var(--red);font-weight:700;letter-spacing:.08em;display:block;margin:4px 0}
-.mods{margin-top:4px;color:var(--acc);font-weight:600}
-.paces{display:grid;gap:8px;margin-top:12px}
-.paces button{text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.paces button small{color:var(--mute);text-align:right}
-.paces button.risk small{color:var(--red)}
-.warn{color:var(--red);font-size:13px;margin-top:8px}
-.log{font-size:13px;color:var(--mute);max-height:300px;overflow:auto}
-.log div{padding:2px 0;border-bottom:1px dashed #2b2823}
-.log .bad{color:var(--red)}.log .good{color:var(--grn)}.log .hd{color:var(--acc);font-weight:600}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-th:first-child,td:first-child{text-align:left;white-space:normal}
-th{color:var(--mute);font-weight:500}
-.scroll{overflow-x:auto}
-.cfg{display:grid;grid-template-columns:1fr 76px;gap:6px 10px;align-items:center;font-size:14px}
-.cfg h3{grid-column:1/-1;font-size:13px;color:var(--acc);margin:10px 0 0;text-transform:uppercase;letter-spacing:.06em}
-.cfg input{width:76px;background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px;font:inherit}
-.hide{display:none}
-.mute{color:var(--mute);font-size:13px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.big{font-size:28px;font-weight:800;color:var(--acc)}
-.bar{height:8px;background:var(--chip);border-radius:4px;overflow:hidden;margin-top:3px}
-.bar i{display:block;height:100%;background:var(--acc)}
-</style>
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--asphalt);color:var(--chalk);font:16px/1.5 var(--body);font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.hide{display:none!important}
 
+/* Header + tabs */
+.top{max-width:1080px;margin:0 auto;padding:18px 20px 0;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{font:italic 800 34px/0.9 var(--cond);letter-spacing:-.01em;margin:0}
+.brand small{display:block;font:500 15px/1.3 var(--body);color:var(--dust);letter-spacing:0;margin-top:6px;font-style:normal}
+.tabs{display:flex;gap:2px;background:var(--road);border-radius:10px;padding:3px}
+.tabs button{background:none;border:0;border-radius:8px;padding:8px 14px;color:var(--dust);font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--kerb);color:var(--chalk)}
+main{max-width:1080px;margin:0 auto;padding:18px 20px 64px}
+
+/* Generic surfaces */
+.panel{background:var(--road);border-radius:14px;padding:18px}
+.panel+.panel{margin-top:14px}
+h2{font:700 24px/1.1 var(--cond);margin:0 0 6px}
+h3{font:600 18px/1.2 var(--cond);margin:0 0 6px}
+p{margin:0 0 10px;max-width:62ch}
+.muted{color:var(--dust)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--kerb);border:0;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer}
+.btn:hover{background:#3f4c59}
+.btn.go{background:var(--lamp);color:#1b1500}
+.btn.go:hover{background:#ffd24d}
+.btn:disabled{opacity:.45;cursor:default}
+.inp{background:var(--asphalt);border:1px solid var(--kerb);border-radius:10px;padding:10px 12px;min-width:0}
+.inp::placeholder{color:#6d7985}
+
+/* Stage strip: the rally as a roadbook line */
+.strip{display:flex;align-items:stretch;gap:3px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.leg{display:flex;flex-direction:column;gap:5px;flex:none}
+.leg>b{font:600 13px var(--cond);color:var(--dust)}
+.legstages{display:flex;gap:3px}
+.st{width:46px;flex:none;border-radius:6px;background:var(--asphalt);padding:4px 4px 5px;text-align:center;position:relative}
+.st .sw{display:flex;height:8px;border-radius:3px;overflow:hidden}
+.st .sw i{flex:1}
+.st span{display:block;font:600 14px/1.2 var(--cond);margin-top:4px}
+.st.dark{background:#11161b}
+.st.dark span::after{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--dust);margin-left:3px;vertical-align:2px}
+.st.done{opacity:.4}
+.st.now{box-shadow:inset 0 0 0 2px var(--lamp)}
+.svc{flex:none;width:14px;align-self:flex-end;height:26px;display:grid;place-items:center}
+.svc i{width:4px;height:100%;border-radius:2px;background:var(--kerb)}
+.svc.long i{background:var(--lamp);width:6px}
+.key{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--dust);margin-top:8px}
+.key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* Game layout */
+.game{display:grid;gap:14px;grid-template-areas:"strip" "note" "paces" "dash" "log"}
+.game>*,.hero>*{min-width:0}
+@media(min-width:900px){.game{grid-template-columns:1.25fr 1fr;grid-template-areas:"strip strip" "note dash" "paces dash" "paces log";align-items:start}}
+.game.calm{grid-template-areas:"strip" "note" "dash" "log"}
+@media(min-width:900px){.game.calm{grid-template-areas:"strip strip" "note dash" "log dash"}}
+.a-strip{grid-area:strip}.a-dash{grid-area:dash}.a-note{grid-area:note}.a-paces{grid-area:paces}.a-log{grid-area:log}
+
+/* Dash: time + crew gauges */
+.clock{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.clock b{font:700 56px/1 var(--cond)}
+.clock span{color:var(--dust)}
+.gauges{display:grid;gap:10px;margin-top:14px}
+.gauge{display:grid;grid-template-columns:76px 1fr 42px;align-items:center;gap:10px}
+.gauge label{font-weight:500;color:var(--dust)}
+.gauge output{font:700 20px var(--cond);text-align:right}
+.segs{display:flex;gap:3px}
+.segs i{flex:1;height:14px;border-radius:2px;background:var(--kerb)}
+.segs i.on{background:var(--chalk)}
+.gauge.low .segs i.on{background:var(--lamp)}
+.gauge.out output{color:var(--flag)}
+.readouts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--kerb);border-radius:10px;overflow:hidden;margin-top:16px}
+.readouts div{background:var(--road);padding:8px 10px}
+.readouts small{display:block;color:var(--dust);font-size:13px}
+.readouts b{font:600 18px/1.2 var(--cond)}
+.dead{margin-top:12px;color:var(--flag);font-weight:600}
+
+/* The pace note: the one loud element */
+.note{background:var(--lamp);color:#1b1500;border-radius:16px;padding:18px 20px 16px;position:relative;overflow:hidden}
+.note .count{font:600 15px var(--cond);opacity:.7}
+.calls{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.call{display:grid;grid-template-columns:84px 1fr;gap:14px;align-items:center}
+.call svg{width:84px;height:84px}
+.call .say{font:italic 800 46px/0.95 var(--cond);letter-spacing:-.01em}
+.call .mods{font:700 22px/1.1 var(--cond);margin-top:4px}
+.call .plain{font:500 16px var(--body);opacity:.7;margin-top:4px}
+.into{font:italic 700 20px var(--cond);padding-left:98px;opacity:.8}
+.cond{margin-top:12px;padding-top:10px;border-top:2px solid rgba(27,21,0,.18);font-weight:500;font-size:15px}
+.cond p{margin:0;max-width:none}
+.cond .warn{font-weight:600}
+@media(prefers-reduced-motion:no-preference){.note.fresh{animation:deal .22s ease-out}@keyframes deal{from{transform:translateY(6px);opacity:.4}to{transform:none;opacity:1}}}
+
+/* Compact crew line, phones only: keeps tokens next to the decision */
+.minidash{display:flex;justify-content:space-between;gap:8px;background:var(--road);border-radius:12px;padding:10px 14px}
+.minidash div{text-align:center}.minidash small{display:block;color:var(--dust);font-size:12px}.minidash b{font:700 22px/1.1 var(--cond)}
+.minidash .out b{color:var(--flag)}
+@media(min-width:900px){.minidash{display:none}}
+/* Pace choices */
+.paces{display:grid;gap:8px}
+.pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
+.pace b{font:700 26px/1 var(--cond)}
+.pace small{color:var(--dust);text-align:right;font-size:14px}
+.pace:hover{background:#2c3742}
+.pace.p-committed{box-shadow:inset 4px 0 0 var(--lamp)}
+.pace.p-flat{box-shadow:inset 4px 0 0 var(--flag)}
+.pace.risk small{color:var(--flag);font-weight:600}
+.forced{color:var(--lamp);font-weight:500;margin:4px 0 0}
+.choices{display:grid;gap:8px;margin-top:12px}
+.choices .pace{background:var(--asphalt)}.choices .pace:hover{background:#151b21}
+
+/* Log: a timing sheet */
+.log{max-height:340px;overflow:auto;margin-top:8px;font-size:14px}
+.log div{padding:5px 0;border-bottom:1px solid var(--kerb);color:var(--dust)}
+.log .hd{color:var(--chalk);font-weight:600}
+.log .good{color:var(--clear)}
+.log .bad{color:var(--flag)}
+
+/* Home */
+.hero{display:grid;gap:18px}
+@media(min-width:900px){.hero{grid-template-columns:1.4fr 1fr;align-items:start}}
+.week h2{font:italic 800 44px/0.95 var(--cond);margin:0 0 10px}
+.week .facts{display:flex;gap:22px;flex-wrap:wrap;margin:14px 0}
+.week .facts div small{display:block;color:var(--dust);font-size:13px}
+.week .facts div b{font:700 24px var(--cond)}
+.sent{color:var(--clear);font-weight:500}
+.mini td,.mini th{padding:6px 4px}
+
+/* Tables */
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 6px;border-bottom:1px solid var(--kerb);text-align:right;white-space:nowrap}
+th{font-weight:500;color:var(--dust);font-size:14px}
+th:nth-child(2),td:nth-child(2){text-align:left;white-space:normal}
+td:first-child,th:first-child{text-align:left;width:2.5em}
+td b{font:700 18px var(--cond)}
+tr.me td{color:var(--lamp)}
+.scroll{overflow-x:auto}
+.lbhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* Sim */
+.bar{height:8px;background:var(--kerb);border-radius:4px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--lamp)}
+.simrow{margin:12px 0}
+.simrow .row{justify-content:space-between}
+
+/* Numbers */
+.cfg{display:grid;grid-template-columns:1fr 84px;gap:8px 12px;align-items:center;max-width:560px}
+.cfg h3{grid-column:1/-1;margin:14px 0 0;color:var(--lamp)}
+.cfg input{width:84px}
+
+@media(max-width:560px){
+  .brand{font-size:30px}
+  .tabs{width:100%}.tabs button{flex:1;padding:8px 6px}
+  main{padding:14px 12px 56px}
+  .call{grid-template-columns:64px 1fr;gap:10px}.call svg{width:64px;height:64px}
+  .call .say{font-size:38px}.into{padding-left:74px}
+  .clock b{font-size:46px}
+}
+</style>
 </head>
 <body>
-<header>
-  <h1>Death Wish <span>Group B Rally</span></h1>
-  <div class="sub">A push-your-luck rally game. Lose the least time. Don't run out of luck.</div>
+<header class="top">
+  <h1 class="brand">Death Wish<small>A Group B rally game. Lose the least time. Don't run out of luck.</small></h1>
+  <nav class="tabs" aria-label="Sections">
+    <button id="t-play" class="on" onclick="tab('play')">Drive</button>
+    <button id="t-lb" onclick="tab('lb')">Leaderboard</button>
+    <button id="t-sim" onclick="tab('sim')">Simulate</button>
+    <button id="t-cfg" onclick="tab('cfg')">Numbers</button>
+  </nav>
 </header>
-<nav class="tabs">
-  <button id="t-play" class="on" onclick="tab('play')">Play</button>
-  <button id="t-lb" onclick="tab('lb')">Leaderboard</button>
-  <button id="t-sim" onclick="tab('sim')">Simulate</button>
-  <button id="t-cfg" onclick="tab('cfg')">Numbers</button>
-</nav>
 <main>
   <section id="v-play"></section>
   <section id="v-lb" class="hide"></section>
   <section id="v-sim" class="hide">
     <div class="panel">
-      <h2>Auto-simulation</h2>
-      <div class="mute">Runs full rallies with simple driving strategies, using the values on the Numbers tab.</div>
-      <div class="row" style="margin-top:10px">
-        <label class="mute">Rallies <input id="simN" class="inp" type="number" value="1000" min="10" max="20000" style="width:90px"></label>
-        <label class="mute">Seed <input id="simSeed" class="inp" type="text" placeholder="blank = random" style="width:120px"></label>
-        <button class="primary" onclick="runSim()">Run</button>
+      <h2>Simulate</h2>
+      <p class="muted">Bots drive full rallies with simple strategies, using your values from Numbers. Every strategy gets the same rallies, so the differences come from the choices, not the dice.</p>
+      <div class="row">
+        <label class="muted">Rallies <input id="simN" class="inp" type="number" value="1000" min="10" max="20000" style="width:96px"></label>
+        <label class="muted">Seed <input id="simSeed" class="inp" type="text" placeholder="Random" style="width:130px"></label>
+        <button class="btn go" onclick="runSim()">Run simulation</button>
       </div>
-      <div class="mute" style="margin-top:6px">Every strategy drives the same rallies (rally <i>i</i> uses seed + <i>i</i>), so differences come from the choices, not the dice.</div>
     </div>
     <div id="simOut"></div>
   </section>
   <section id="v-cfg" class="hide">
     <div class="panel">
-      <h2>Tunable numbers</h2>
-      <div class="mute">These apply to Free play and Simulate only. The weekly ranked rally always uses the official rules (v<span id="rv"></span>). Your values are kept in this browser.</div>
+      <h2>Numbers</h2>
+      <p class="muted">Change these for Free play and Simulate. The weekly rally always uses the official rules (v<span id="rv"></span>). Your values stay in this browser.</p>
       <div class="cfg" id="cfgGrid"></div>
-      <div class="row" style="margin-top:12px"><button onclick="resetCfg()">Reset to official values</button></div>
+      <div class="row" style="margin-top:16px"><button class="btn" onclick="resetCfg()">Reset to official values</button></div>
     </div>
   </section>
 </main>
-<style>.inp{background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}.lbrow td:nth-child(2){text-align:left}.me td{color:var(--acc)}</style>
 <script type="module">
 import * as E from './engine.js';
 import {API_URL} from './site-config.js';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const API=API_URL?API_URL.replace(/\/$/,''):'';
 
 // ---------- Custom numbers (free play + sim) ----------
 let custom={...E.DEF};
@@ -106,7 +233,7 @@ function buildCfg(){
   E.CFG_META.forEach(m=>{
     if(m.length===1){const h=document.createElement('h3');h.textContent=m[0];g.appendChild(h);return;}
     const l=document.createElement('label');l.textContent=m[1];l.htmlFor='c-'+m[0];
-    const i=document.createElement('input');i.type='number';i.id='c-'+m[0];i.value=custom[m[0]];
+    const i=document.createElement('input');i.type='number';i.id='c-'+m[0];i.className='inp';i.value=custom[m[0]];
     i.oninput=()=>{const v=parseFloat(i.value);if(!isNaN(v)){custom[m[0]]=v;store.set('dw-cfg',JSON.stringify(custom));}};
     g.appendChild(l);g.appendChild(i);
   });
@@ -114,132 +241,174 @@ function buildCfg(){
 window.resetCfg=()=>{custom={...E.DEF};store.set('dw-cfg',JSON.stringify(custom));buildCfg();};
 const isOfficial=cfg=>Object.keys(E.DEF).every(k=>cfg[k]===E.DEF[k]);
 
-// ---------- Identity (no accounts) ----------
-// A random secret kept in this browser claims your name on the leaderboard.
+// ---------- Identity (no accounts): a secret in this browser claims your name ----------
 let token=store.get('dw-token');
 if(!token){const a=new Uint8Array(18);crypto.getRandomValues(a);token=Array.from(a,b=>b.toString(16).padStart(2,'0')).join('');store.set('dw-token',token);}
 
-// ---------- Play ----------
-let G=null;
-const WEEK=E.isoWeek();
-window.startWeekly=()=>{G=E.createGame(E.weeklySeed(WEEK));G.ranked=true;G.week=WEEK;render();};
+// ---------- Drawing helpers ----------
+// Roadbook tulip: a dot where you enter, an arrow showing how far the road turns.
+const BEND={Hairpin:165,Acute:135,Square:90,'1':75,'2':62,'3':50,'4':38,'5':27,'6':17,Flat:8};
+function tulip(cd,ink){
+  const a=cd.gi<0?0:BEND[E.GRADES[cd.gi]],dir=cd.side==='L'?-1:1,rad=a*Math.PI/180;
+  const x=50+Math.sin(rad)*30*dir,y=42-Math.cos(rad)*30;
+  const ah=8,back=rad,px=Math.sin(back)*dir,py=-Math.cos(back);
+  const tipx=x+px*4,tipy=y+py*4,bx=x-px*ah,by=y-py*ah,nx=-py,ny=px;
+  return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="86" r="6" fill="'+ink+'"/><path d="M50 86 L50 42 L'+x.toFixed(1)+' '+y.toFixed(1)+'" fill="none" stroke="'+ink+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M'+tipx.toFixed(1)+' '+tipy.toFixed(1)+' L'+(bx+nx*7).toFixed(1)+' '+(by+ny*7).toFixed(1)+' L'+(bx-nx*7).toFixed(1)+' '+(by-ny*7).toFixed(1)+'Z" fill="'+ink+'"/></svg>';
+}
+const sayCard=cd=>cd.gi<0?'Straight':(cd.side==='L'?'Left ':'Right ')+E.GRADES[cd.gi];
+const SURFCOL=['var(--s-tarmac)','var(--s-gravel)','var(--s-snow)'];
+function strip(r,phase){
+  let h='<div class="strip" role="list" aria-label="Rally itinerary">';
+  for(let L=1;L<=r.legs;L++){
+    h+='<div class="leg"><b>Leg '+L+'</b><div class="legstages">';
+    for(let k=1;k<=r.stages;k++){
+      if(r.legOf[k]!==L)continue;
+      const sp=r.surf[k-1],now=phase&&k===r.stage&&phase==='choose',done=phase&&(k<r.stage||(k===r.stage&&phase!=='choose'));
+      h+='<div role="listitem" class="st'+(r.night[k]?' dark':'')+(now?' now':'')+(done?' done':'')+'" title="Stage '+k+': '+E.surfLabel(sp)+(r.night[k]?', '+r.night[k]:'')+'"><div class="sw"><i style="background:'+SURFCOL[sp[0]]+'"></i><i style="background:'+SURFCOL[sp[1]]+'"></i></div><span>S'+k+'</span></div>';
+      if(r.svc[k]==='short'&&k<r.stages)h+='<div class="svc" title="Service"><i></i></div>';
+    }
+    h+='</div></div>';
+    if(L<r.legs)h+='<div class="svc long" title="Long service"><i></i></div>';
+  }
+  return h+'</div><div class="key"><span><i style="background:var(--s-tarmac)"></i>Tarmac</span><span><i style="background:var(--s-gravel)"></i>Gravel</span><span><i style="background:var(--s-snow)"></i>Snow</span><span><i style="background:#11161b;box-shadow:inset 0 0 0 1px var(--kerb)"></i>Dawn or night</span><span><i style="background:var(--kerb);width:4px"></i>Service</span><span><i style="background:var(--lamp);width:5px"></i>Long service</span></div>';
+}
+function gauge(label,v,max){
+  let s='';for(let i=0;i<max;i++)s+='<i'+(i<v?' class="on"':'')+'></i>';
+  return '<div class="gauge'+(v<=0?' out':v<=Math.ceil(max/4)?' low':'')+'"><label>'+label+'</label><div class="segs" aria-hidden="true">'+s+'</div><output aria-label="'+label+' '+v+' of '+max+'">'+v+'</output></div>';
+}
+
+// ---------- Drive ----------
+let G=null,fresh=false;
+const WEEK=E.isoWeek(),WSEED=E.weeklySeed(WEEK);
+window.startWeekly=()=>{G=E.createGame(WSEED);G.ranked=true;G.week=WEEK;fresh=true;render();scrollTo(0,0);};
 window.startFree=seed=>{
   if(seed===undefined)seed=($('playSeed')&&$('playSeed').value.trim())||E.randomSeed();
-  G=E.createGame(seed,custom);G.ranked=false;render();
+  G=E.createGame(seed,custom);G.ranked=false;fresh=true;render();scrollTo(0,0);
 };
-window.pickT=ty=>{E.chooseTyre(G,ty);render();};
-window.choose=p=>{E.choosePace(G,p);render();};
-window.nextStage=()=>{E.continueStage(G);render();};
+window.pickT=ty=>{E.chooseTyre(G,ty);fresh=true;render();};
+window.choose=p=>{E.choosePace(G,p);fresh=true;render();};
+window.nextStage=()=>{E.continueStage(G);fresh=true;render();};
 window.quit=()=>{G=null;render();};
 window.replayGame=()=>{G.ranked?startWeekly():startFree(G.seed);};
-window.copyReplay=async()=>{try{await navigator.clipboard.writeText(G.seed+':'+G.moves);$('copyMsg').textContent='Copied.';}catch(e){$('copyMsg').textContent=G.seed+':'+G.moves;}};
+window.copyReplay=async()=>{try{await navigator.clipboard.writeText(G.seed+':'+G.moves);$('copyMsg').textContent='Replay code copied';}catch(e){$('copyMsg').textContent=G.seed+':'+G.moves;}};
 
-function startScreen(){
-  const sub=store.get('dw-sub-'+WEEK);
-  return '<div class="panel"><h2>Rally of the week · '+WEEK+'</h2><div class="mute">Everyone drives the same rally this week, with the official rules (v'+E.RULES_VERSION+'). Practise as much as you like, like a recce. You get <b style="color:var(--ink)">one</b> leaderboard submission per name per week.'+(sub?'<br><span style="color:var(--grn)">You submitted '+esc(sub)+' this week.</span>':'')+'</div><div class="row" style="margin-top:12px"><button class="primary" onclick="startWeekly()">Drive the weekly rally</button><button onclick="tab(\'lb\')">Leaderboard</button></div></div>'
-  +'<div class="panel"><h2>Free play</h2><div class="mute">Any seed, using your values from the Numbers tab. Not ranked. The same seed always gives the same itinerary, weather and cards.</div><div class="row" style="margin-top:12px"><input id="playSeed" class="inp" type="text" placeholder="Seed (blank = random)" style="flex:1;min-width:140px"><button class="primary" onclick="startFree()">Start</button></div></div>';
+function home(){
+  const preview=E.createGame(WSEED),r=preview.r,sub=store.get('dw-sub-'+WEEK);
+  const legs=r.legs,nights=Object.keys(r.night).filter(k=>r.night[k]).length;
+  let h='<div class="hero"><div class="panel week"><h2>Rally of the week</h2><p class="muted">Week '+WEEK+'. Everyone drives this same rally on the official rules. Practise it as often as you like, then submit one run.</p>';
+  h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.WEATHER[r.weather]+'</b></div></div>';
+  h+=strip(r,null);
+  h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
+  h+='<div><div class="panel"><h3>Standings, '+WEEK+'</h3><div id="miniLb" class="muted">'+(API?'Loading…':'Leaderboard not connected.')+'</div></div>';
+  h+='<div class="panel"><h3>Free play</h3><p class="muted">Any seed, with your values from Numbers. Not ranked. The same seed always gives the same rally.</p><div class="row"><input id="playSeed" class="inp" type="text" placeholder="Seed, or leave blank" style="flex:1;min-width:120px" aria-label="Seed"><button class="btn" onclick="startFree()">Start free play</button></div></div>';
+  h+='<div class="panel"><h3>How to drive</h3><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p></div></div></div>';
+  return h;
 }
+async function loadMini(){
+  if(!API||!$('miniLb'))return;
+  try{
+    const j=await (await fetch(API+'/leaderboard?week='+WEEK)).json(),e=(j.entries||[]).slice(0,5);
+    $('miniLb').innerHTML=e.length?'<table class="mini">'+e.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td><b>'+x.time+'</b></td></tr>').join('')+'</table><p style="margin:10px 0 0"><button class="btn" onclick="tab(\'lb\')">Full leaderboard</button></p>':'No runs yet this week. Be the first.';
+  }catch(e){$('miniLb').textContent='Couldn\'t reach the leaderboard.';}
+}
+
 function render(){
   const el=$('v-play');
-  if(!G){el.innerHTML=startScreen();return;}
+  if(!G){el.innerHTML=home();loadMini();return;}
   const r=G.r,c=r.crew,CFG=G.cfg;
-  let it='<div class="chips" style="margin-top:6px">';
-  for(let k=1;k<=r.stages;k++){
-    if(k===1||r.legOf[k]!==r.legOf[k-1])it+='<span style="background:none;padding-left:0"><b>Leg '+r.legOf[k]+'</b></span>';
-    const cur=k===r.stage&&G.phase!=='tyres';
-    it+='<span style="'+(cur?'outline:1px solid var(--acc);color:var(--ink)':k<r.stage||(k===r.stage&&G.phase==='tyres')?'opacity:.45':'')+'">S'+k+' '+E.surfLabel(r.surf[k-1])+(r.night[k]?' · '+r.night[k]:'')+'</span>';
-    if(r.svc[k]&&k<r.stages)it+='<span style="background:none;color:var(--acc)">'+(r.svc[k]==='long'?'▮ Long service':'▯ Service')+'</span>';
-  }
-  it+='</div>';
-  let h='<div class="panel"><div class="chips"><span>'+(G.ranked?'<b style="color:var(--acc)">Weekly '+G.week+'</b>':'Seed <b>'+esc(G.seed)+'</b>')+'</span><span>Stage <b>'+r.stage+'/'+r.stages+'</b></span><span>Event <b>'+Math.min(r.len,r.len-r.left+(G.ev?1:0))+'/'+r.len+'</b></span><span>'+E.WEATHER[r.weather]+'</span><span>Track <b>'+E.TRACKC[r.track]+'</b></span><span>Tyres <b>'+E.TYRES[c.tyre]+'</b></span><span>'+E.PROFILES[r.profile]+'</span>'+(c.dead?'<span style="color:var(--red)">DEAD</span>':'')+'</div>'+it;
-  h+='<div class="tok" style="margin-top:10px"><div><b>'+(c.time+Math.max(0,c.stageTime))+'</b><small>Time lost</small></div><div class="'+(c.st<=0?'zero':'')+'"><b>'+c.st+'</b><small>Stamina /'+CFG.stamina+'</small></div><div class="'+(c.co<=0?'zero':'')+'"><b>'+c.co+'</b><small>Courage /'+CFG.courage+'</small></div><div class="'+(c.lu<=0?'zero':'')+'"><b>'+c.lu+'</b><small>Luck /'+CFG.luck+'</small></div></div></div>';
+  let h='<div class="game'+(G.phase==='choose'?'':' calm')+'"><div class="a-strip panel">'+strip(r,G.phase)+'</div>';
+  // Dash
+  h+='<div class="a-dash panel"><div class="clock"><span>'+(G.ranked?'Weekly rally '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
+  h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck)+'</div>';
+  h+='<div class="readouts"><div><small>Stage</small><b>'+Math.max(1,r.stage)+' of '+r.stages+'</b></div><div><small>Card</small><b>'+(r.stage?Math.min(r.len,r.len-r.left+(G.ev?1:0))+' of '+r.len:'–')+'</b></div><div><small>Tyres</small><b>'+E.TYRES[c.tyre]+'</b></div><div><small>Weather</small><b>'+E.WEATHER[r.weather]+'</b></div><div><small>Track</small><b>'+E.TRACKC[r.track]+'</b></div><div><small>Death Wishes</small><b>'+c.dw+'</b></div></div>'+(c.dead?'<p class="dead">The crew is dead. The rest of the rally counts at maximum time.</p>':'')+'</div>';
   if(G.phase==='choose'&&G.ev){
-    h+='<div class="panel">';
+    h+='<div class="a-note note'+(fresh?' fresh':'')+'"><div class="count">Stage '+r.stage+', card '+Math.min(r.len,r.len-r.left+1)+' of '+r.len+'</div><div class="calls">';
     G.ev.forEach((cd,i)=>{
-      if(i===1)h+='<div class="note"><span class="into">▼ INTO</span></div>';
-      h+='<div class="note">'+E.cardName(cd)+'</div>'+(cd.mods.length?'<div class="mods">'+cd.mods.map(m=>m.n).join(' · ')+'</div>':'<div class="mute">no modifier</div>');
+      if(i===1)h+='<div class="into">into</div>';
+      h+='<div class="call">'+tulip(cd,'#1b1500')+'<div><div class="say">'+sayCard(cd)+'</div>'+(cd.mods.length?'<div class="mods">'+cd.mods.map(m=>m.n).join(', ')+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
     });
     const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],gr=E.grip(c.tyre,su,E.isWet(r.weather));
-    h+='<div class="mute" style="margin-top:6px">'+E.SURF[su]+(E.isWet(r.weather)?', wet':', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip':gr===1?'<span style="color:var(--acc)">poor grip (+1 time)</span>':'<span style="color:var(--red)">no grip (+2 time, +1 Courage unless Safe)</span>')+'</div>';
-    if(r.night[r.stage])h+='<div class="mute" style="color:var(--acc)">'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: Jump, Unseen, Deceptive and Over Crest cost +1 time (Safe) or +1 Courage.</div>';
-    if(G.ev.length>1)h+='<div class="mute" style="margin-top:6px">Linked cards: same pace for both, +1 Courage on the second unless Safe.</div>';
-    h+='<div class="paces">';let fz=null;
-    [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="'+(pv.risk?'risk':'')+'" onclick="choose(\''+k+'\')"><span>'+n+'</span><small>'+pv.txt+'</small></button>';});
-    h+='</div>'+(fz?'<div class="warn">'+fz+': you are forced to Safe pace'+(c.st<=0?' (+1 time per event)':'')+'.</div>':'')+'</div>';
+    h+='</div><div class="cond"><p>'+E.SURF[su]+(E.isWet(r.weather)?', wet':', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
+    if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
+    if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';
+    const md=(l,v)=>'<div class="'+(v<=0?'out':'')+'"><small>'+l+'</small><b>'+v+'</b></div>';
+    h+='</div></div><div class="a-paces paces"><div class="minidash">'+md('Time',c.time+Math.max(0,c.stageTime))+md('Stamina',c.st)+md('Courage',c.co)+md('Luck',c.lu)+'</div>';let fz=null;
+    [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="pace p-'+k+(pv.risk?' risk':'')+'" onclick="choose(\''+k+'\')"><b>'+n+'</b><small>'+pv.txt+'</small></button>';});
+    h+=(fz?'<p class="forced">'+fz+': every pace is driven as Safe'+(c.st<=0?', with +1 time per card':'')+'.</p>':'')+'<div class="row" style="margin-top:6px"><button class="btn" onclick="quit()">Abandon rally</button></div></div>';
   }else if(G.phase==='tyres'){
     const up=E.upcoming(r);
-    h+='<div class="panel"><h2>'+(r.stage===0?'Choose starting tyres':r.svc[r.stage]==='long'?'Long service: choose tyres':'Service: choose tyres')+'</h2>'+(r.stage>0?'<div class="mute">Stage '+r.stage+' lost '+r.stageTimes[r.stageTimes.length-1]+' time.</div>':'')+'<div class="mute" style="margin-top:4px">Until the next service: '+up.map(k=>'S'+k+' '+E.surfLabel(r.surf[k-1])+(r.night[k]?' ('+r.night[k]+')':'')).join(', ')+'. Weather now: <b style="color:var(--ink)">'+E.WEATHER[r.weather]+'</b>, and it can shift one step each stage.</div><div class="paces">';
-    E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button onclick="pickT('+ty+')"><span>'+n+'</span><small>if weather holds: '+g[0]+' good · '+g[1]+' poor · '+g[2]+' no grip</small></button>';});
-    h+='</div><div class="mute" style="margin-top:8px">Counts are stage halves. Slick: dry tarmac only. Wet: wet tarmac. Gravel: gravel, and a poor fallback anywhere. Snow: snow.</div></div>';
+    h+='<div class="a-note panel"><h2>'+(r.stage===0?'Choose your starting tyres':r.svc[r.stage]==='long'?'Long service':'Service')+'</h2>'+(r.stage>0?'<p class="muted">Stage '+r.stage+' cost '+r.stageTimes[r.stageTimes.length-1]+' time. '+(r.svc[r.stage]==='long'?'The crew rests: Stamina and Courage are full.':'Stamina is restored.')+'</p>':'')+'<p>These tyres stay on until the next service: '+up.map(k=>'stage '+k+' ('+E.surfLabel(r.surf[k-1]).toLowerCase()+(r.night[k]?', '+r.night[k]:'')+')').join(', ')+'. It\'s '+E.WEATHER[r.weather].toLowerCase()+' now, and the weather can shift one step each stage.</p>';
+    h+='<div class="choices">';
+    E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button class="pace" onclick="pickT('+ty+')"><b>'+n+'</b><small>'+(g[0]?g[0]+' good':'')+(g[1]?(g[0]?', ':'')+g[1]+' poor':'')+(g[2]?(g[0]||g[1]?', ':'')+g[2]+' no grip':'')+'</small></button>';});
+    h+='</div><p class="muted" style="margin:10px 0 0">Grip counts are half-stages, assuming today\'s weather holds. Gravel tyres are the safe bet: poor away from gravel, never hopeless.</p></div>';
   }else if(G.phase==='stageEnd'){
-    h+='<div class="panel"><h2>Stage '+r.stage+' complete</h2><div class="big">'+r.stageTimes[r.stageTimes.length-1]+' <span class="mute">time lost</span></div><div class="row" style="margin-top:10px"><button class="primary" onclick="nextStage()">Next stage</button></div></div>';
+    h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()">Start stage '+(r.stage+1)+'</button></div></div>';
   }else if(G.phase==='done'){
-    h+='<div class="panel"><h2>Rally finished</h2><div class="big">'+c.time+' <span class="mute">total time lost</span></div><div class="mute">Stages: '+r.stageTimes.join(' · ')+'<br>Death Wishes: '+c.dw+(c.dwLog.length?' ('+c.dwLog.join(', ')+')':'')+' · Flat Outs: '+c.flats+' · Events fatigued: '+c.fatigue+' · shaken: '+c.shaken+'</div>';
+    h+='<div class="a-note panel"><h2>'+(c.dead?'The crew didn\'t make it':'Rally complete')+'</h2><div class="clock"><b>'+c.time+'</b><span>total time lost</span></div><p class="muted" style="margin-top:10px">Stage times: '+r.stageTimes.join(', ')+'. '+c.dw+' Death Wish'+(c.dw===1?'':'es')+', '+c.flats+' Flat Out calls.</p>';
     if(G.ranked)h+=submitBox();
-    h+='<div class="row" style="margin-top:10px"><button class="primary" onclick="replayGame()">Drive it again</button><button onclick="quit()">Menu</button><button onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="mute"></span></div></div>';
+    h+='<div class="row" style="margin-top:14px"><button class="btn go" onclick="replayGame()">Drive it again</button><button class="btn" onclick="quit()">Back to menu</button><button class="btn" onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="muted" role="status"></span></div></div>';
   }
-  if(G.phase!=='done')h+='<div class="row" style="margin:-4px 0 12px"><button onclick="quit()">Abandon rally</button></div>';
-  h+='<div class="panel"><h2>Stage log</h2><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div>';
-  el.innerHTML=h;
+  h+='<div class="a-log panel"><h3>Timing sheet</h3><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div></div>';
+  el.innerHTML=h;fresh=false;
 }
 
 // ---------- Leaderboard ----------
 function submitBox(){
-  if(!API_URL)return '<div class="mute" style="margin-top:10px">The leaderboard isn\'t connected yet (set API_URL in site-config.js).</div>';
+  if(!API)return '<p class="muted">The leaderboard isn\'t connected yet.</p>';
   const sub=store.get('dw-sub-'+G.week);
-  if(sub)return '<div class="mute" style="margin-top:10px;color:var(--grn)">You already submitted '+esc(sub)+' for '+G.week+'. This run is practice.</div>';
-  return '<div style="margin-top:12px"><div class="mute">Submit this run to the '+G.week+' leaderboard? One submission per name per week.</div><div class="row" style="margin-top:8px"><input id="lbName" class="inp" maxlength="20" placeholder="Your name" value="'+esc(store.get('dw-name')||'')+'" style="flex:1;min-width:140px"><button class="primary" id="lbBtn" onclick="submitRun()">Submit '+G.r.crew.time+'</button></div><div id="lbMsg" class="mute" style="margin-top:6px"></div></div>';
+  if(sub)return '<p class="sent">You already submitted '+esc(sub)+' for '+G.week+'. This run was practice.</p>';
+  return '<div style="margin-top:14px"><h3>Submit to the leaderboard</h3><p class="muted">One run per name per week. The server re-drives your rally to check the time.</p><div class="row"><input id="lbName" class="inp" maxlength="20" placeholder="Crew name" aria-label="Crew name" value="'+esc(store.get('dw-name')||'')+'" style="flex:1;min-width:140px"><button class="btn go" id="lbBtn" onclick="submitRun()">Submit '+G.r.crew.time+'</button></div><p id="lbMsg" class="muted" role="status" style="margin:8px 0 0"></p></div>';
 }
 window.submitRun=async()=>{
   const name=$('lbName').value.trim(),msg=$('lbMsg'),btn=$('lbBtn');
-  if(name.length<2){msg.textContent='Name needs at least 2 characters.';return;}
+  if(name.length<2){msg.textContent='Enter a crew name of at least 2 characters.';return;}
   btn.disabled=true;msg.textContent='Checking your run…';
   try{
-    const res=await fetch(API_URL.replace(/\/$/,'')+'/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,token,week:G.week,moves:G.moves,version:E.RULES_VERSION})});
+    const res=await fetch(API+'/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,token,week:G.week,moves:G.moves,version:E.RULES_VERSION})});
     const j=await res.json();
-    if(!res.ok){msg.innerHTML='<span style="color:var(--red)">'+esc(j.error||'Submission failed')+'</span>';btn.disabled=false;return;}
+    if(!res.ok){msg.innerHTML='<span style="color:var(--flag)">'+esc(j.error||'Submission failed.')+'</span>';btn.disabled=false;return;}
     store.set('dw-name',name);store.set('dw-sub-'+G.week,j.time+' as '+name);
-    msg.innerHTML='<span style="color:var(--grn)">Verified: '+j.time+'. You\'re P'+j.rank+' of '+j.total+'.</span>';btn.remove();
-  }catch(e){msg.innerHTML='<span style="color:var(--red)">Couldn\'t reach the leaderboard.</span>';btn.disabled=false;}
+    msg.innerHTML='<span class="sent">Verified at '+j.time+'. You\'re P'+j.rank+' of '+j.total+'.</span>';btn.remove();
+  }catch(e){msg.innerHTML='<span style="color:var(--flag)">Couldn\'t reach the leaderboard. Check your connection and submit again.</span>';btn.disabled=false;}
 };
 let lbWeek=WEEK;
 window.lbShift=d=>{const [y,w]=lbWeek.split('-W').map(Number);let nw=w+d,ny=y;if(nw<1){ny--;nw=52;}if(nw>53){ny++;nw=1;}lbWeek=ny+'-W'+String(nw).padStart(2,'0');loadLb();};
 async function loadLb(){
   const el=$('v-lb');
-  const head='<div class="panel"><div class="row" style="justify-content:space-between"><button onclick="lbShift(-1)">‹</button><h2 style="margin:0">Leaderboard · '+lbWeek+'</h2><button onclick="lbShift(1)" '+(lbWeek>=WEEK?'disabled':'')+'>›</button></div>';
-  if(!API_URL){el.innerHTML=head+'<div class="mute" style="margin-top:10px">Not connected yet. Set API_URL in site-config.js to your Worker\'s address.</div></div>';return;}
-  el.innerHTML=head+'<div class="mute" style="margin-top:10px">Loading…</div></div>';
+  const head='<div class="panel"><div class="lbhead"><button class="btn" onclick="lbShift(-1)" aria-label="Previous week">‹</button><h2 style="margin:0">Week '+lbWeek+'</h2><button class="btn" onclick="lbShift(1)" aria-label="Next week" '+(lbWeek>=WEEK?'disabled':'')+'>›</button></div>';
+  if(!API){el.innerHTML=head+'<p class="muted" style="margin-top:12px">The leaderboard isn\'t connected yet.</p></div>';return;}
+  el.innerHTML=head+'<p class="muted" style="margin-top:12px">Loading…</p></div>';
   try{
-    const j=await (await fetch(API_URL.replace(/\/$/,'')+'/leaderboard?week='+encodeURIComponent(lbWeek))).json();
-    const me=(store.get('dw-name')||'').toLowerCase();
-    let t='<div class="scroll" style="margin-top:10px"><table class="lbrow"><tr><th>#</th><th>Crew</th><th>Time</th><th>DW</th></tr>';
-    (j.entries||[]).forEach((x,i)=>{t+='<tr class="'+(x.name.toLowerCase()===me?'me':'')+'"><td>'+(i+1)+'</td><td>'+esc(x.name)+(x.dead?' <span style="color:var(--red)">†</span>':'')+'</td><td>'+x.time+'</td><td>'+x.dw+'</td></tr>';});
+    const j=await (await fetch(API+'/leaderboard?week='+encodeURIComponent(lbWeek))).json(),e=j.entries||[];
+    const me=(store.get('dw-name')||'').toLowerCase(),best=e.length?e[0].time:0;
+    let t='<div class="scroll" style="margin-top:12px"><table><tr><th>Pos</th><th>Crew</th><th>Time</th><th>Gap</th><th>Death Wishes</th></tr>';
+    e.forEach((x,i)=>{t+='<tr class="'+(x.name.toLowerCase()===me?'me':'')+'"><td>'+(i+1)+'</td><td>'+esc(x.name)+(x.dead?' <span style="color:var(--flag)" title="Crew died">†</span>':'')+'</td><td><b>'+x.time+'</b></td><td>'+(i?'+'+(x.time-best):'')+'</td><td>'+x.dw+'</td></tr>';});
     t+='</table></div>';
-    el.innerHTML=head+((j.entries||[]).length?t:'<div class="mute" style="margin-top:10px">No runs yet.</div>')+'<div class="mute" style="margin-top:8px">Times are recalculated by the server from each replay. DW = Death Wishes drawn, † = crew died. Rules v'+E.RULES_VERSION+'.</div></div>';
-  }catch(e){el.innerHTML=head+'<div class="mute" style="margin-top:10px;color:var(--red)">Couldn\'t reach the leaderboard.</div></div>';}
+    el.innerHTML=head+(e.length?t:'<p class="muted" style="margin-top:12px">'+(lbWeek===WEEK?'No runs yet this week. Drive the weekly rally and be the first.':'No runs that week.')+'</p>')+'<p class="muted" style="margin:12px 0 0;font-size:14px">The server recalculates every time from the run\'s replay. † means the crew died.</p></div>';
+  }catch(err){el.innerHTML=head+'<p style="margin-top:12px;color:var(--flag)">Couldn\'t reach the leaderboard. Check your connection and try again.</p></div>';}
 }
 
 // ---------- Simulate ----------
 window.runSim=()=>{
   const N=Math.max(10,Math.min(20000,parseInt($('simN').value)||1000));
   const sIn=$('simSeed');const SEED=sIn.value.trim()||E.randomSeed();sIn.value=SEED;
-  const out=$('simOut');out.innerHTML='<div class="panel mute">Running…</div>';
+  const out=$('simOut');out.innerHTML='<div class="panel muted" style="margin-top:14px">Running '+N+' rallies per strategy…</div>';
   setTimeout(()=>{
     const rows=E.simulate(SEED,N,custom);
     const best=Math.min(...rows.map(x=>x.avg)),worst=Math.max(...rows.map(x=>x.avg));
     const pct=v=>(v*100).toFixed(1)+'%',f1=v=>v.toFixed(1);
-    let h='<div class="panel"><h2>Time lost (lower is better)</h2>';
-    rows.forEach(x=>{h+='<div style="margin:8px 0"><div class="row" style="justify-content:space-between"><span>'+x.name+(x.avg===best?' 🏁':'')+'</span><b>'+f1(x.avg)+'</b></div><div class="bar"><i style="width:'+(x.avg/worst*100)+'%"></i></div><div class="mute">median '+x.med+' · 10–90%: '+x.p10+'–'+x.p90+'</div></div>';});
-    h+='</div><div class="panel"><h2>Risk and resources</h2><div class="scroll"><table><tr><th>Strategy</th><th>Death Wish</th><th>DW / rally</th><th>Terminal</th><th>DEAD</th></tr>';
-    rows.forEach(x=>{h+='<tr><td>'+x.name+'</td><td>'+pct(x.dwAny)+'</td><td>'+x.dwAvg.toFixed(2)+'</td><td>'+pct(x.term)+'</td><td>'+pct(x.dead)+'</td></tr>';});
-    h+='</table></div><div class="scroll" style="margin-top:10px"><table><tr><th>Strategy</th><th>Flat Outs</th><th>Fatigued</th><th>Shaken</th><th>Luck left</th></tr>';
-    rows.forEach(x=>{h+='<tr><td>'+x.name+'</td><td>'+f1(x.flats)+'</td><td>'+f1(x.fat)+'</td><td>'+f1(x.sh)+'</td><td>'+f1(x.endLu)+'</td></tr>';});
-    h+='</table></div><div class="mute" style="margin-top:8px">Seed '+esc(SEED)+' · '+N+' rallies per strategy'+(isOfficial(custom)?' · official rules':' · custom numbers')+'.</div></div>';
+    let h='<div class="panel" style="margin-top:14px"><h3>Average time lost</h3><p class="muted">Lower is better. Seed '+esc(SEED)+', '+N+' rallies each, '+(isOfficial(custom)?'official rules':'your custom numbers')+'.</p>';
+    rows.forEach(x=>{h+='<div class="simrow"><div class="row"><span>'+x.name+(x.avg===best?' (fastest)':'')+'</span><b>'+f1(x.avg)+'</b></div><div class="bar"><i style="width:'+(x.avg/worst*100)+'%"></i></div><div class="muted" style="font-size:14px">Median '+x.med+', middle 80% from '+x.p10+' to '+x.p90+'</div></div>';});
+    h+='</div><div class="panel"><h3>Risk and resources</h3><div class="scroll"><table><tr><th></th><th>Strategy</th><th>Any Death Wish</th><th>Per rally</th><th>Terminal</th><th>Died</th></tr>';
+    rows.forEach(x=>{h+='<tr><td></td><td>'+x.name+'</td><td>'+pct(x.dwAny)+'</td><td>'+x.dwAvg.toFixed(2)+'</td><td>'+pct(x.term)+'</td><td>'+pct(x.dead)+'</td></tr>';});
+    h+='</table></div><div class="scroll" style="margin-top:14px"><table><tr><th></th><th>Strategy</th><th>Flat Outs</th><th>Cards fatigued</th><th>Cards shaken</th><th>Luck left</th></tr>';
+    rows.forEach(x=>{h+='<tr><td></td><td>'+x.name+'</td><td>'+f1(x.flats)+'</td><td>'+f1(x.fat)+'</td><td>'+f1(x.sh)+'</td><td>'+f1(x.endLu)+'</td></tr>';});
+    h+='</table></div><p class="muted" style="margin:10px 0 0;font-size:14px">Fatigued and shaken count cards driven with no Stamina or no Courage left.</p></div>';
     out.innerHTML=h;
   },20);
 };
 
-window.tab=t=>{['play','lb','sim','cfg'].forEach(k=>{$('v-'+k).classList.toggle('hide',k!==t);$('t-'+k).classList.toggle('on',k===t);});if(t==='lb')loadLb();};
+window.tab=t=>{['play','lb','sim','cfg'].forEach(k=>{$('v-'+k).classList.toggle('hide',k!==t);$('t-'+k).classList.toggle('on',k===t);});if(t==='lb')loadLb();if(t==='play'&&!G)render();};
 buildCfg();render();
 </script>
 </body>

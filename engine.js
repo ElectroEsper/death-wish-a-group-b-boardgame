@@ -295,7 +295,7 @@ function finishStage(g){
 }
 export function preview(g,p){
   use(g);
-  const pv=applyEvent(g.r,g.ev,p,true),c0=g.r.crew,c=pv.crew,bits=['+'+pv.T+' time'];
+  const pv=applyEvent(g.r,g.ev,p,true),c0=g.r.crew,c=pv.crew,bits=[(pv.T<0?'−'+(-pv.T):'+'+pv.T)+' time'];
   const ds=c.st-c0.st,dc=c.co-c0.co,dl=c.lu-c0.lu;
   if(ds)bits.push((ds>0?'+':'')+ds+' Stam');if(dc)bits.push((dc>0?'+':'')+dc+' Cour');if(dl)bits.push((dl>0?'+':'')+dl+' Luck');
   if(p==='flat'&&!pv.forced)bits.push('+ Luck card');
