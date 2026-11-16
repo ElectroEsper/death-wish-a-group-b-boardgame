@@ -165,6 +165,12 @@ p{margin:0 0 10px;max-width:62ch}
 .gripmini{display:grid;grid-template-columns:auto repeat(4,1fr);gap:3px;font-size:13px;text-align:center}
 .gripmini span{background:var(--road);border-radius:6px;padding:4px 2px}
 .g0{color:var(--clear)}.g1{color:var(--lamp)}.g2{color:var(--flag)}
+/* Live standings after a stage */
+.stand{margin-top:14px;padding-top:12px;border-top:1px solid var(--kerb)}
+.stand .pos{font:700 30px/1 var(--cond)}.stand .pos span{font:500 15px var(--body);color:var(--dust);margin-left:8px}
+.stand table{margin-top:8px}.stand td{padding:5px 4px}
+.stand tr.you td{color:var(--lamp);font-weight:600}
+.stand .gap{color:var(--dust)}
 /* Pace choices */
 .paces{display:grid;gap:8px}
 .pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
@@ -262,8 +268,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=b7372c7';
-import {API_URL} from './site-config.js?v=b7372c7';
+import * as E from './engine.js?v=9969fd0x';
+import {API_URL} from './site-config.js?v=9969fd0x';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -411,7 +417,7 @@ const WEEK=E.isoWeek();
 // The weekly event: name, seed and surface theme can be set by the admin. Defaults until the server answers.
 let EVENT={week:WEEK,name:'',seed:E.weeklySeed(WEEK),surface:''};
 if(API)fetch(API+'/event?week='+WEEK).then(x=>x.json()).then(e=>{if(e&&e.seed){EVENT=e;if(!G)render();}}).catch(()=>{});
-window.startWeekly=()=>firstTime(()=>{G=E.createGame(EVENT.seed,null,EVENT);G.ranked=true;G.week=WEEK;fresh=true;render();scrollTo(0,0);});
+window.startWeekly=()=>firstTime(()=>{G=E.createGame(EVENT.seed,null,EVENT);G.ranked=true;G.week=WEEK;loadField(G);fresh=true;render();scrollTo(0,0);});
 window.startFree=seed=>{
   if(seed===undefined)seed=($('playSeed')&&$('playSeed').value.trim())||E.randomSeed();
   firstTime(()=>{G=E.createGame(seed,custom);G.ranked=false;fresh=true;render();scrollTo(0,0);});
@@ -436,6 +442,27 @@ function home(){
   h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p></div></div></div>';
   return h;
 }
+// ---------- Live standings: compare your stage-by-stage total with every submitted run ----------
+async function loadField(g){
+  if(!API)return;
+  try{const j=await (await fetch(API+'/leaderboard?week='+g.week)).json();g.field=(j.entries||[]).filter(e=>e.stages&&e.stages.length);if(G===g&&G.phase!=='choose')render();}catch(e){}
+}
+function standings(g,final){
+  if(!g.ranked||!API)return '';
+  if(!g.field)return '<div class="stand muted">Loading other crews\' times…</div>';
+  if(!g.field.length)return '<div class="stand muted">No other crews have finished this rally yet, so there\'s no one to compare with.</div>';
+  const k=g.r.stageTimes.length,sum=a=>a.slice(0,k).reduce((x,y)=>x+y,0);
+  const mine=sum(g.r.stageTimes),me=(store.get('dw-name')||'').toLowerCase();
+  const rows=g.field.map(e=>({name:e.name+(e.name.toLowerCase()===me?' (your submitted run)':''),t:sum(e.stages)})).concat([{name:'You, this run',t:mine,you:true}]);
+  rows.sort((a,b)=>a.t-b.t||(a.you?-1:b.you?1:0));
+  const pos=rows.findIndex(x=>x.you),lead=rows[0].t;
+  const show=new Set([0,pos-1,pos,pos+1,rows.length-1].filter(i=>i>=0&&i<rows.length));
+  let t='<table>',last=-1;
+  [...show].sort((a,b)=>a-b).forEach(i=>{if(i>last+1)t+='<tr><td colspan="3" class="muted">…</td></tr>';const x=rows[i];t+='<tr class="'+(x.you?'you':'')+'"><td>P'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.t+' <span class="gap">'+(i?'+'+(x.t-lead):'')+'</span></td></tr>';last=i;});
+  t+='</table>';
+  return '<div class="stand"><div class="pos">P'+(pos+1)+'<span>of '+rows.length+(final?' at the finish':' after stage '+k)+(pos?', '+(mine-lead)+' behind the leader':', leading')+'</span></div>'+t+'</div>';
+}
+
 async function loadMini(){
   if(!API||!$('miniLb'))return;
   try{
@@ -474,12 +501,12 @@ function render(){
     h+='<div class="a-note panel"><h2>'+(r.stage===0?'Choose your starting tyres':r.svc[r.stage]==='long'?'Long service':'Service')+'</h2>'+(r.stage>0?'<p class="muted">Stage '+r.stage+' cost '+r.stageTimes[r.stageTimes.length-1]+' time. '+(r.svc[r.stage]==='long'?'The crew rests and the car is fully repaired.':'Stamina is restored and the mechanics fixed up to '+CFG.dmgShortRepair+' Damage.')+'</p>':'')+'<p>These tyres stay on until the next service: '+up.map(k=>'stage '+k+' ('+E.surfLabel(r.surf[k-1]).toLowerCase()+(r.night[k]?', '+r.night[k]:'')+')').join(', ')+'. It\'s '+E.WEATHER[r.weather].toLowerCase()+' now, and the weather can shift one step each stage.</p>';
     h+='<div class="choices">';
     E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button class="pace" onclick="pickT('+ty+')"><b>'+n+'</b><small>'+(g[0]?g[0]+' good':'')+(g[1]?(g[0]?', ':'')+g[1]+' poor':'')+(g[2]?(g[0]||g[1]?', ':'')+g[2]+' no grip':'')+'</small></button>';});
-    h+='</div><p class="muted" style="margin:10px 0 0">Grip counts are half-stages, assuming today\'s weather holds. Gravel tyres are the safe bet: poor away from gravel, never hopeless.</p>'+(r.stage>0?fixBox(c,r,CFG):'')+'</div>';
+    h+='</div><p class="muted" style="margin:10px 0 0">Grip counts are half-stages, assuming today\'s weather holds. Gravel tyres are the safe bet: poor away from gravel, never hopeless.</p>'+(r.stage>0?standings(G)+fixBox(c,r,CFG):'')+'</div>';
   }else if(G.phase==='stageEnd'){
-    h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()">Start stage '+(r.stage+1)+'</button></div>'+fixBox(c,r,CFG)+'</div>';
+    h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()">Start stage '+(r.stage+1)+'</button></div>'+standings(G)+fixBox(c,r,CFG)+'</div>';
   }else if(G.phase==='done'){
     h+='<div class="a-note panel"><h2>'+(c.dead?'The crew didn\'t make it':c.retired?'Retired: car wrecked':'Rally complete')+'</h2><div class="clock"><b>'+c.time+'</b><span>total time lost</span></div><p class="muted" style="margin-top:10px">Stage times: '+r.stageTimes.join(', ')+'. '+c.dw+' Death Wish'+(c.dw===1?'':'es')+', '+c.flats+' Flat Out calls.</p>';
-    if(G.ranked)h+=submitBox();
+    if(G.ranked)h+=standings(G,true)+submitBox();
     h+='<div class="row" style="margin-top:14px"><button class="btn go" onclick="replayGame()">Drive it again</button><button class="btn" onclick="quit()">Back to menu</button><button class="btn" onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="muted" role="status"></span></div></div>';
   }
   h+='<div class="a-log panel"><h3>Timing sheet</h3><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div></div>';

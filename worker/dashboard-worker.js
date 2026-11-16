@@ -587,6 +587,7 @@ function isAdmin(req, env) {
 __name(isAdmin, "isAdmin");
 async function admin(req, url, env) {
   if (!env.ADMIN_KEY) return json(env, { error: "Admin is off: set an ADMIN_KEY secret on the Worker first." }, 503);
+  if (env.ADMIN_KEY.length < 12) return json(env, { error: "The ADMIN_KEY secret on the Worker is shorter than 12 characters. Set a longer one." }, 503);
   if (!isAdmin(req, env)) return json(env, { error: "Wrong admin key." }, 401);
   const path = url.pathname.slice(6);
   if (req.method === "GET" && path === "/runs") {
@@ -669,7 +670,7 @@ async function submit(req, env) {
   const ev = await getEvent(env, week);
   const res = replay(ev.seed, String(b.moves || ""), ev);
   if (!res.ok) return json(env, { error: "Replay rejected: " + res.error }, 400);
-  const entry = { name, time: res.time, dw: res.deathWishes, dead: res.dead, retired: !!res.retired, at: Date.now() };
+  const entry = { name, time: res.time, dw: res.deathWishes, dead: res.dead, retired: !!res.retired, stages: res.stages, at: Date.now() };
   await env.LB.put("run:" + week + ":" + lower, JSON.stringify({ ...entry, moves: b.moves }));
   const list = await env.LB.get("lb:" + week, "json") || [];
   list.push(entry);
@@ -683,6 +684,21 @@ async function leaderboard(url, env) {
   const week = url.searchParams.get("week") || isoWeek();
   if (!/^\d{4}-W\d{2}$/.test(week)) return json(env, { error: "Bad week" }, 400);
   const list = await env.LB.get("lb:" + week, "json") || [];
+  let fixed = false;
+  if (list.some((e) => !e.stages)) {
+    const ev = await getEvent(env, week);
+    for (const e of list) {
+      if (e.stages) continue;
+      const run = await env.LB.get("run:" + week + ":" + e.name.toLowerCase(), "json");
+      if (!run) continue;
+      const res = replay(ev.seed, run.moves, ev);
+      if (res.ok) {
+        e.stages = res.stages;
+        fixed = true;
+      }
+    }
+    if (fixed) await env.LB.put("lb:" + week, JSON.stringify(list));
+  }
   return json(env, { week, version: RULES_VERSION, entries: list });
 }
 __name(leaderboard, "leaderboard");
