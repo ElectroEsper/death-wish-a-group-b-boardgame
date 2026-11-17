@@ -282,6 +282,7 @@ function applyEvent(r,cards,pace,dry){
     T+=t;
   });
   if(!dry&&!isOut(c))coDriver(r,c,cards,pace);
+  if(!dry&&isOut(c)&&c.outStage==null)c.outStage=r.stage;
   if(!dry){c.stageTime+=T;r.left-=cards.length;}
   return {T,L,crew:c,risk,forced};
 }

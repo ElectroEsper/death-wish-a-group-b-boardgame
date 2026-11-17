@@ -352,11 +352,11 @@ tr.me td{color:var(--lamp)}
 </main>
 <footer id="ver" style="max-width:1080px;margin:0 auto;padding:0 20px 28px;color:var(--dust);font-size:13px"></footer>
 <script type="module">
-import * as E from './engine.js?v=251f39ev';
-import {API_URL} from './site-config.js?v=251f39ev';
+import * as E from './engine.js?v=a34e69bd';
+import {API_URL} from './site-config.js?v=a34e69bd';
 const $=id=>document.getElementById(id);
 // Updated with each release: date and short commit it was built from.
-const BUILD='2026-11-17.251f39e';
+const BUILD='2026-11-17.a34e69b';
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const API=API_URL?API_URL.replace(/\/$/,''):'';
@@ -615,10 +615,12 @@ function soloPanel(){
   return h+'</div>';
 }
 function saveSolo(g){
-  const S=soloStore(),c=g.r.crew,k=g.r.stageTimes.length,rows=g.solo.bots.map(b=>b.g.r.crew.time).concat([c.time]).sort((a,b)=>a-b);
-  S.results.unshift({at:Date.now(),seed:g.solo.seed,rally:g.solo.rally||'',rallyName:g.r.rally?g.r.rally.name:'Standard rally',diff:g.solo.diff,diffName:ROSTERS[g.solo.diff].name,time:c.time,pos:rows.indexOf(c.time)+1,of:rows.length,out:c.dead||c.retired});
+  const S=soloStore(),c=g.r.crew,fin=g.solo.bots.filter(b=>b.g.r.crew.outStage==null).map(b=>b.g.r.crew.time),out=c.outStage!=null;
+  const pos=out?0:fin.filter(t=>t<c.time).length+1,of=fin.length+(out?0:1);
+  S.results.unshift({at:Date.now(),seed:g.solo.seed,rally:g.solo.rally||'',rallyName:g.r.rally?g.r.rally.name:'Standard rally',diff:g.solo.diff,diffName:ROSTERS[g.solo.diff].name,time:c.time,pos,of,out});
   S.results=S.results.slice(0,50);store.set('dw-solo',JSON.stringify(S));
 }
+
 
 // ---------- Drive ----------
 let G=null,fresh=false;
@@ -683,21 +685,25 @@ async function loadField(g){
   if(!API)return;
   try{const j=await (await fetch(API+'/leaderboard?week='+g.week)).json();if(syncSubmitted(g.week,j.entries||[])&&G===g&&G.phase==='done')render();g.field=(j.entries||[]).filter(e=>e.stages&&e.stages.length);if(G===g&&G.phase!=='choose')render();}catch(e){}
 }
+// Live timing. Crews that crashed out (dead or wrecked) are DNF: listed below the runners, not ranked.
 function standings(g,final){
-  if(g.solo)g.field=g.solo.bots.map(b=>({name:b.name+' · '+E.PERSONAS[b.persona].name.replace('The ','')+(b.g.r.crew.dead?' †':b.g.r.crew.retired?' ✕':''),stages:b.g.r.stageTimes}));
+  if(g.solo)g.field=g.solo.bots.map(b=>{const c=b.g.r.crew;return {name:b.name+' · '+E.PERSONAS[b.persona].name.replace('The ',''),stages:b.g.r.stageTimes,outStage:c.outStage,why:c.dead?'crew died':'car wrecked'};});
   else if(!g.ranked||!API)return '';
   if(!g.field)return '<div class="stand muted">Loading other crews\' times…</div>';
   if(!g.field.length)return '<div class="stand muted">No other crews have finished this rally yet, so there\'s no one to compare with.</div>';
-  const k=g.r.stageTimes.length,sum=a=>a.slice(0,k).reduce((x,y)=>x+y,0);
-  const mine=sum(g.r.stageTimes),me=(store.get('dw-name')||'').toLowerCase();
-  const rows=g.field.map(e=>({name:e.name+(e.name.toLowerCase()===me?' (your submitted run)':''),t:sum(e.stages)})).concat([{name:'You, this run',t:mine,you:true}]);
-  rows.sort((a,b)=>a.t-b.t||(a.you?-1:b.you?1:0));
-  const pos=rows.findIndex(x=>x.you),lead=rows[0].t;
-  const show=new Set(g.solo?rows.map((_,i)=>i):[0,pos-1,pos,pos+1,rows.length-1].filter(i=>i>=0&&i<rows.length));
+  const k=g.r.stageTimes.length,sum=a=>a.slice(0,k).reduce((x,y)=>x+y,0),me=(store.get('dw-name')||'').toLowerCase(),mc=g.r.crew;
+  const all=g.field.map(e=>({name:e.name+(e.name.toLowerCase()===me?' (your submitted run)':''),t:sum(e.stages),out:e.outStage!=null&&e.outStage<=k?e.outStage:0,why:e.why}))
+    .concat([{name:'You, this run',t:sum(g.r.stageTimes),you:true,out:mc.outStage!=null&&mc.outStage<=k?mc.outStage:0,why:mc.dead?'crew died':'car wrecked'}]);
+  const run=all.filter(x=>!x.out).sort((a,b)=>a.t-b.t||(a.you?-1:b.you?1:0)),dnf=all.filter(x=>x.out).sort((a,b)=>b.out-a.out);
+  const lead=run.length?run[0].t:0,you=all.find(x=>x.you),pos=run.indexOf(you);
+  const show=new Set(g.solo?run.map((_,i)=>i):[0,pos-1,pos,pos+1,run.length-1].filter(i=>i>=0&&i<run.length));
   let t='<table>',last=-1;
-  [...show].sort((a,b)=>a-b).forEach(i=>{if(i>last+1)t+='<tr><td colspan="3" class="muted">…</td></tr>';const x=rows[i];t+='<tr class="'+(x.you?'you':'')+'"><td>P'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.t+' <span class="gap">'+(i?'+'+(x.t-lead):'')+'</span></td></tr>';last=i;});
+  [...show].sort((a,b)=>a-b).forEach(i=>{if(i>last+1)t+='<tr><td colspan="3" class="muted">…</td></tr>';const x=run[i];t+='<tr class="'+(x.you?'you':'')+'"><td>P'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.t+' <span class="gap">'+(i?'+'+(x.t-lead):'')+'</span></td></tr>';last=i;});
+  dnf.forEach(x=>{t+='<tr class="'+(x.you?'you':'')+'"><td class="muted">DNF</td><td>'+esc(x.name)+'</td><td class="muted" style="white-space:normal;text-align:right">'+x.why+', stage '+x.out+'</td></tr>';});
   t+='</table>';
-  return '<div class="stand"><div class="pos">P'+(pos+1)+'<span>of '+rows.length+(final?' at the finish':' after stage '+k)+(pos?', '+(mine-lead)+' behind the leader':', leading')+'</span></div>'+t+'</div>';
+  const head=you.out?'<div class="pos" style="color:var(--flag)">DNF<span>'+you.why+' on stage '+you.out+'. '+run.length+' crew'+(run.length===1?'':'s')+' still running.</span></div>'
+    :'<div class="pos">P'+(pos+1)+'<span>of '+run.length+(final?' finishers':' still running after stage '+k)+(pos?', '+(you.t-lead)+' behind the leader':', leading')+(dnf.length?' · '+dnf.length+' out':'')+'</span></div>';
+  return '<div class="stand">'+head+t+'</div>';
 }
 
 async function loadMini(){
