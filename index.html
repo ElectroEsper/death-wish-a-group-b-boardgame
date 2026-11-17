@@ -356,7 +356,7 @@ import * as E from './engine.js?v=7821b27o';
 import {API_URL} from './site-config.js?v=7821b27o';
 const $=id=>document.getElementById(id);
 // Updated with each release: date and short commit it was built from.
-const BUILD='2026-11-17.7821b27';
+const BUILD='2026-11-17.973b1ca';
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const API=API_URL?API_URL.replace(/\/$/,''):'';
@@ -701,7 +701,7 @@ function standings(g,final){
   [...show].sort((a,b)=>a-b).forEach(i=>{if(i>last+1)t+='<tr><td colspan="3" class="muted">…</td></tr>';const x=run[i];t+='<tr class="'+(x.you?'you':'')+'"><td>P'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.t+' <span class="gap">'+(i?'+'+(x.t-lead):'')+'</span></td></tr>';last=i;});
   dnf.forEach(x=>{t+='<tr class="'+(x.you?'you':'')+'"><td class="muted">DNF</td><td>'+esc(x.name)+'</td><td class="muted" style="white-space:normal;text-align:right">'+x.why+', stage '+x.out+'</td></tr>';});
   t+='</table>';
-  const head=you.out?'<div class="pos" style="color:var(--flag)">DNF<span>'+you.why+' on stage '+you.out+'. '+run.length+' crew'+(run.length===1?'':'s')+' still running.</span></div>'
+  const head=you.out?'<div class="pos" style="color:var(--flag)">DNF<span>'+you.why+' on stage '+you.out+'. '+run.length+' crew'+(run.length===1?'':'s')+(final?' finished.':' still running.')+'</span></div>'
     :'<div class="pos">P'+(pos+1)+'<span>of '+run.length+(final?' finishers':' still running after stage '+k)+(pos?', '+(you.t-lead)+' behind the leader':', leading')+(dnf.length?' · '+dnf.length+' out':'')+'</span></div>';
   return '<div class="stand">'+head+t+'</div>';
 }
@@ -768,7 +768,7 @@ function render(){
   }else if(G.phase==='stageEnd'){
     h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()"><kbd style="border-color:rgba(0,0,0,.25);color:#1b1500">Enter</kbd>Start stage '+(r.stage+1)+'</button></div>'+stageMaps(G)+standings(G)+fixBox(c,r,CFG)+'</div>';
   }else if(G.phase==='done'){
-    h+='<div class="a-note panel"><h2>'+(c.dead?'The crew didn\'t make it':c.retired?'Retired: car wrecked':'Rally complete')+'</h2><div class="clock"><b>'+c.time+'</b><span>total time lost</span></div><p class="muted" style="margin-top:10px">Stage times: '+r.stageTimes.join(', ')+'. '+c.dw+' Death Wish'+(c.dw===1?'':'es')+', '+c.flats+' Flat Out calls.</p>';
+    h+='<div class="a-note panel"><h2>'+(c.dead?'The crew didn\'t make it':c.retired?'Retired: car wrecked':'Rally complete')+'</h2><div class="clock"><b>'+c.time+'</b><span>total time lost</span></div><p class="muted" style="margin-top:10px">Stage times: '+(c.outStage!=null?r.stageTimes.slice(0,c.outStage).join(', ')+(c.outStage<r.stages?', then stages '+(c.outStage+1)+(c.outStage+1<r.stages?'–'+r.stages:'')+' at maximum time ('+r.stageTimes.slice(c.outStage).reduce((a,b)=>a+b,0)+')':''):r.stageTimes.join(', '))+'. '+c.dw+' Death Wish'+(c.dw===1?'':'es')+', '+c.flats+' Flat Out calls.</p>';
     if(G.solo){h+=standings(G,true)+'<p class="muted" style="margin:10px 0 0">'+(G.r.rally?G.r.rally.name+', ':'')+ROSTERS[G.solo.diff].name+' field. Saved in this browser only.</p>';if(!G.soloSaved){G.soloSaved=true;saveSolo(G);}}
     if(G.ranked)h+='<p id="pbNote" class="sent" style="margin:8px 0 0">'+(G.histSaved?(G.pb?'New personal best for this week.':'Your best this week is '+(getHist(G.week)||{}).best+'.'):'')+'</p>'+standings(G,true)+submitBox();
     h+=allMaps(G);
