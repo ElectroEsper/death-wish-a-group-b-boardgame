@@ -1,0 +1,33 @@
+name: Deploy Worker
+# Deploys the leaderboard Worker whenever the rules or the Worker change, after the replay check passes.
+on:
+  push:
+    branches: [main]
+    paths: ['engine.js', 'worker/**', '.github/workflows/deploy-worker.yml']
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20}
+      - run: node tests/check-replays.mjs
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets are set
+        env: {T: '${{ secrets.CF_API_TOKEN }}', A: '${{ secrets.CF_ACCOUNT_ID }}', K: '${{ secrets.CF_KV_ID }}'}
+        run: |
+          if [ -z "$T" ] || [ -z "$A" ] || [ -z "$K" ]; then echo "::warning::Add CF_API_TOKEN, CF_ACCOUNT_ID and CF_KV_ID as repository secrets to enable automatic deploys."; echo "skip=1" >> $GITHUB_ENV; fi
+      - name: Insert KV namespace id
+        if: env.skip != '1'
+        run: sed -i "s/PASTE_YOUR_KV_NAMESPACE_ID_HERE/${{ secrets.CF_KV_ID }}/" worker/wrangler.toml
+      - uses: cloudflare/wrangler-action@v3
+        if: env.skip != '1'
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: worker

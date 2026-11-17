@@ -1,11 +1,10 @@
 name = "death-wish-leaderboard"
 main = "src/index.js"
 compatibility_date = "2026-11-01"
+# Keep variables set in the Cloudflare dashboard (ALLOWED_ORIGIN) on every deploy.
+keep_vars = true
 
 [[kv_namespaces]]
 binding = "LB"
+# Filled in by the deploy workflow from the CF_KV_ID secret. For a manual deploy, paste the id here.
 id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"
-
-[vars]
-# Set to your GitHub Pages address (e.g. "https://electroesper.github.io") to only accept requests from your site.
-ALLOWED_ORIGIN = "*"
