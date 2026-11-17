@@ -352,11 +352,11 @@ tr.me td{color:var(--lamp)}
 </main>
 <footer id="ver" style="max-width:1080px;margin:0 auto;padding:0 20px 28px;color:var(--dust);font-size:13px"></footer>
 <script type="module">
-import * as E from './engine.js?v=a34e69bd';
-import {API_URL} from './site-config.js?v=a34e69bd';
+import * as E from './engine.js?v=7821b27o';
+import {API_URL} from './site-config.js?v=7821b27o';
 const $=id=>document.getElementById(id);
 // Updated with each release: date and short commit it was built from.
-const BUILD='2026-11-17.a34e69b';
+const BUILD='2026-11-17.7821b27';
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const API=API_URL?API_URL.replace(/\/$/,''):'';
@@ -839,6 +839,7 @@ async function watchRun(week,name){
     const g=E.createGame(j.event.seed,null,j.event),stages=[];let cur=null;
     const tot=()=>g.r.crew.time+(g.r.stageTimes.length>=g.r.stage?0:g.r.crew.stageTime);
     for(const ch of j.moves){
+      if(g.phase==='done')break;
       if(ch==='r'){E.fixCar(g);if(cur)cur.fixes=(cur.fixes||0)+1;continue;}
       while(g.phase==='stageEnd')E.continueStage(g);
       if(g.phase==='tyres'){stages.push(cur={stage:g.r.stage+1,tyre:E.TYRES[+ch],calls:[],surf:g.r.surf[g.r.stage]});E.chooseTyre(g,+ch);continue;}

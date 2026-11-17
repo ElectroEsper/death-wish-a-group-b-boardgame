@@ -418,6 +418,11 @@ function finishStage(g){
   L.forEach(t=>g.log.push({t,k:/^(SERVICE|LONG|Clean)/.test(t)?'good':''}));
   g.log.push({t:'Stage '+g.r.stage+' time: '+g.r.stageTimes[g.r.stageTimes.length-1]+' · Total: '+g.r.crew.time,k:'hd'});
   g.phase=g.r.stage>=g.r.stages?'done':g.r.svc[g.r.stage]?'tyres':'stageEnd';
+  // A crew that's out of the rally doesn't drive on: run out the remaining stages at once.
+  if(isOut(g.r.crew)&&g.phase!=='done'){
+    if(!g.outLogged){g.outLogged=true;g.log.push({t:'Out of the rally. The remaining stages count at maximum time.',k:'bad'});}
+    beginStage(g);
+  }
 }
 export function preview(g,p,opts){
   use(g);
@@ -541,6 +546,8 @@ export function replay(seed,moves,event){
   if(typeof moves!=='string'||!/^[0-3scfr]{1,2000}$/.test(moves))return {ok:false,error:'Bad replay code'};
   const g=createGame(seed,null,event);
   for(const ch of moves){
+    // Runs saved before crashed crews skipped to the end may still hold tyre picks made after the crash.
+    if(g.phase==='done'&&isOut(g.r.crew)&&/[0-3]/.test(ch))continue;
     if(ch==='r'){if((g.phase==='stageEnd'||g.phase==='tyres')&&canFix(g.r)){fixCar(g);continue;}return {ok:false,error:'Repair not allowed there'};}
     while(g.phase==='stageEnd')continueStage(g);
     if(g.phase==='tyres'){if(!/[0-3]/.test(ch))return {ok:false,error:'Expected a tyre choice'};chooseTyre(g,+ch);}
