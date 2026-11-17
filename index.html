@@ -350,10 +350,13 @@ tr.me td{color:var(--lamp)}
     </div>
   </section>
 </main>
+<footer id="ver" style="max-width:1080px;margin:0 auto;padding:0 20px 28px;color:var(--dust);font-size:13px"></footer>
 <script type="module">
-import * as E from './engine.js?v=9fc103af';
-import {API_URL} from './site-config.js?v=9fc103af';
+import * as E from './engine.js?v=251f39ev';
+import {API_URL} from './site-config.js?v=251f39ev';
 const $=id=>document.getElementById(id);
+// Updated with each release: date and short commit it was built from.
+const BUILD='2026-11-17.251f39e';
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const API=API_URL?API_URL.replace(/\/$/,''):'';
@@ -886,6 +889,7 @@ document.addEventListener('keydown',e=>{
 });
 
 window.tab=t=>{['play','lb','sim','cfg'].forEach(k=>{$('v-'+k).classList.toggle('hide',k!==t);$('t-'+k).classList.toggle('on',k===t);});if(t==='lb')loadLb();if(t==='play'&&!G)render();};
+$('ver').textContent='Death Wish · rules v'+E.RULES_VERSION+' · build '+BUILD;
 buildCfg();render();
 </script>
 </body>
