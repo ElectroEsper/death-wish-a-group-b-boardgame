@@ -79,8 +79,8 @@ th{color:var(--dust);font-weight:500;font-size:14px}
 window.addEventListener('error',e=>{const m=document.getElementById('loginMsg');if(m&&!window.signIn)m.textContent='Script error: '+(e.message||'a file failed to load')+'. Hard-refresh the page (Ctrl+Shift+R).';},true);
 </script>
 <script type="module">
-import * as E from './engine.js?v=1f78e8bv6';
-import {API_URL} from './site-config.js?v=1f78e8bv6';
+import * as E from './engine.js?v=87fbd72m';
+import {API_URL} from './site-config.js?v=87fbd72m';
 const API=(API_URL||'').replace(/\/$/,''),$=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let KEY='';try{KEY=sessionStorage.getItem('dw-admin')||'';}catch(e){}

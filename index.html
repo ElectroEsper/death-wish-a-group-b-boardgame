@@ -77,10 +77,11 @@ p{margin:0 0 10px;max-width:62ch}
 .key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 
 /* Game layout */
-.game{display:grid;gap:14px;grid-template-areas:"strip" "note" "paces" "dash" "log"}
+.game{display:grid;gap:10px;grid-template-areas:"strip" "mini" "note" "paces" "dash" "log"}
+.a-mini{grid-area:mini}
 .game>*,.hero>*{min-width:0}
 @media(min-width:900px){.game{grid-template-columns:1.25fr 1fr;grid-template-areas:"strip strip" "note dash" "paces dash" "paces log";align-items:start}}
-.game.calm{grid-template-areas:"strip" "note" "dash" "log"}
+.game.calm{grid-template-areas:"strip" "mini" "note" "dash" "log"}
 @media(min-width:900px){.game.calm{grid-template-areas:"strip strip" "note dash" "log dash"}}
 .a-strip{grid-area:strip}.a-dash{grid-area:dash}.a-note{grid-area:note}.a-paces{grid-area:paces}.a-log{grid-area:log}
 
@@ -121,10 +122,33 @@ p{margin:0 0 10px;max-width:62ch}
 @media(prefers-reduced-motion:no-preference){.note.fresh{animation:deal .22s ease-out}@keyframes deal{from{transform:translateY(6px);opacity:.4}to{transform:none;opacity:1}}}
 
 /* Compact crew line, phones only: keeps tokens next to the decision */
-.minidash{display:flex;justify-content:space-between;gap:8px;background:var(--road);border-radius:12px;padding:10px 14px}
-.minidash div{text-align:center}.minidash small{display:block;color:var(--dust);font-size:12px}.minidash b{font:700 22px/1.1 var(--cond)}
-.minidash .out b{color:var(--flag)}
+.minidash{background:var(--road);border-radius:12px;padding:8px 12px}
+.minidash .mrow{display:flex;justify-content:space-between;gap:6px}
+.minidash .mrow div{text-align:center;min-width:0}.minidash small{display:block;color:var(--dust);font-size:11px;line-height:1.2}.minidash b{font:700 21px/1.1 var(--cond)}
+.minidash .out b{color:var(--flag)}.minidash .hot b{color:#ff8f1f}
+.minidash .cond2{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--kerb);font-size:13px;color:var(--dust)}
+.minidash .cond2 b{font:600 15px var(--cond);color:var(--chalk)}
+.minidash .cond2 svg{width:22px;height:18px;vertical-align:-4px;margin-right:3px}
 @media(min-width:900px){.minidash{display:none}}
+/* Phones while driving: everything needed for the decision fits on one screen */
+@media(max-width:899px){
+  body.driving .top{padding:10px 12px 0}
+  body.driving .brand{font-size:22px}body.driving .brand small{display:none}
+  body.driving .tabs button{padding:6px 4px;font-size:14px}
+  body.driving main{padding-top:10px}
+  .a-strip{padding:8px 10px}
+  .a-strip .key,.a-strip .leg>b{display:none}
+  .a-strip .st{width:34px;padding:3px 3px 4px}.a-strip .st span{font-size:12px;margin-top:2px}.a-strip .st .sw{height:6px}
+  .a-strip .svc{height:auto;align-self:stretch;width:10px}.a-strip .svc i{height:auto;align-self:stretch}.a-strip .strip{padding-bottom:0}
+  .note{padding:12px 14px}
+  .note .prog{margin-top:6px}.note .progl{display:none}
+  .call svg{width:52px!important;height:52px!important}.call{grid-template-columns:52px 1fr!important;gap:10px!important}
+  .call .say{font-size:32px!important}.into{padding-left:62px!important;font-size:16px}
+  .chips{margin-top:4px}.chip{font-size:15px;padding:2px 7px}
+  .cond{margin-top:8px;padding-top:6px;font-size:13px}
+  .a-note.panel{padding:14px}.a-note.panel h2{font-size:21px}.a-note.panel p{font-size:14px;margin-bottom:6px}.choices{gap:6px;margin-top:8px}.choices .pace{padding:8px 14px}
+  .paces{gap:6px}.pace{padding:10px 14px}.pace b{font-size:22px}.pace small{font-size:13px}
+}
 /* Difficulty tiers recolour the note card */
 .note.t0{background:#e9e3b8}.note.t1{background:var(--lamp)}.note.t2{background:#ff8f1f}.note.t3{background:var(--flag);color:#fff}
 .note.t3 .cond{border-color:rgba(255,255,255,.3)}
@@ -268,8 +292,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=1f78e8bv6';
-import {API_URL} from './site-config.js?v=1f78e8bv6';
+import * as E from './engine.js?v=87fbd72m';
+import {API_URL} from './site-config.js?v=87fbd72m';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -505,9 +529,13 @@ async function loadMini(){
 
 function render(){
   const el=$('v-play');
-  if(!G){el.innerHTML=home();loadMini();return;}
+  if(!G){document.body.classList.remove('driving');el.innerHTML=home();loadMini();return;}
   const r=G.r,c=r.crew,CFG=G.cfg;
   let h='<div class="game'+(G.phase==='choose'?'':' calm')+'"><div class="a-strip panel">'+strip(r,G.phase)+'</div>';
+  {const md=(l,v,cl)=>'<div class="'+(cl||'')+'"><small>'+l+'</small><b>'+v+'</b></div>';
+   const tm=c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0);
+   h+='<div class="a-mini minidash"><div class="mrow">'+md('Time',tm)+md('Stamina',c.st,c.st<=0?'out':'')+md('Courage',c.co,c.co<=0?'out':'')+md('Luck',c.lu,c.lu<=0?'out':'')+md('Damage',c.dmg+'/'+CFG.dmgMax,c.dmg>=CFG.dmgNoFlat?'out':c.dmg>=CFG.dmgLoose?'hot':'')+'</div>'
+     +'<div class="cond2"><span>'+wxIcon(r.weather)+'<b>'+E.WEATHER[r.weather]+'</b></span><span>Track <b>'+E.TRACKC[r.track]+'</b></span><span>Tyres <b>'+E.TYRES[c.tyre]+'</b></span></div></div>';}
   // Dash
   h+='<div class="a-dash panel"><div class="clock"><span>'+(G.ranked?(EVENT.name?esc(EVENT.name):'Weekly rally')+', '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
   h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck)+dmgGauge(c,CFG)+'</div>';
@@ -524,8 +552,7 @@ function render(){
     if(c.dmg>=CFG.dmgLoose)h+='<p><span class="warn">Damaged car ('+c.dmg+'): +1 time per card'+(c.dmg>=CFG.dmgNoFlat?', no Flat Out':'')+'.</span></p>';
     if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
     if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';
-    const md=(l,v)=>'<div class="'+(v<=0&&l!=='Time'?'out':'')+'"><small>'+l+'</small><b>'+v+'</b></div>';
-    h+='</div></div><div class="a-paces paces"><div class="minidash">'+md('Time',c.time+Math.max(0,c.stageTime))+md('Stamina',c.st)+md('Courage',c.co)+md('Luck',c.lu)+'</div>';let fz=null;
+    h+='</div></div><div class="a-paces paces">';let fz=null;
     [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="pace p-'+k+(pv.risk?' risk':'')+'" onclick="choose(\''+k+'\')"><b>'+n+'</b><small>'+pv.txt+'</small></button>';});
     h+=(fz?'<p class="forced">'+fz+': every pace is driven as Safe'+(c.st<=0?', with +1 time per card':'')+'.</p>':'')+'<div class="row" style="margin-top:6px"><button class="btn" onclick="quit()">Abandon rally</button></div></div>';
   }else if(G.phase==='tyres'){
@@ -542,7 +569,7 @@ function render(){
     h+='<div class="row" style="margin-top:14px"><button class="btn go" onclick="replayGame()">Drive it again</button><button class="btn" onclick="quit()">Back to menu</button><button class="btn" onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="muted" role="status"></span></div></div>';
   }
   h+='<div class="a-log panel"><h3>Timing sheet</h3><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div></div>';
-  el.innerHTML=h;fresh=false;
+  el.innerHTML=h;fresh=false;document.body.classList.add('driving');
   const cur=el.querySelector('.st.now')||el.querySelector('.st:not(.done)');const sb=el.querySelector('.strip');
   if(cur&&sb&&sb.scrollWidth>sb.clientWidth)sb.scrollLeft=Math.max(0,cur.offsetLeft-sb.offsetLeft-sb.clientWidth/2+cur.offsetWidth/2);
   if(G.phase==='done'&&G.ranked&&!G.histSaved){G.histSaved=true;saveHistory(G);}
