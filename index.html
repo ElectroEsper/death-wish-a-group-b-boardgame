@@ -195,6 +195,9 @@ p{margin:0 0 10px;max-width:62ch}
 .stand table{margin-top:8px}.stand td{padding:5px 4px}
 .stand tr.you td{color:var(--lamp);font-weight:600}
 .stand .gap{color:var(--dust)}
+/* Keyboard hints: only where there is a keyboard */
+kbd{display:none;font:600 12px var(--body);border:1px solid var(--kerb);border-bottom-width:2px;border-radius:5px;padding:0 5px;margin-right:8px;color:var(--dust);vertical-align:3px}
+@media(hover:hover) and (pointer:fine){kbd{display:inline-block}}
 /* Pace choices */
 .paces{display:grid;gap:8px}
 .pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
@@ -292,8 +295,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=87fbd72m';
-import {API_URL} from './site-config.js?v=87fbd72m';
+import * as E from './engine.js?v=1fa5c57k';
+import {API_URL} from './site-config.js?v=1fa5c57k';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -352,7 +355,7 @@ function dmgGauge(c,CFG){
 }
 function fixBox(c,r,CFG){
   if(!E.canFix(r))return c.dmg&&!E.isOut(c)?'<p class="muted fixbox">Damage '+c.dmg+'. Not enough Stamina for a roadside fix.</p>':'';
-  return '<div class="fixbox"><p class="muted" style="margin:0 0 8px">Damage '+c.dmg+(c.dmg>=CFG.dmgLoose?': costing +1 time per card':'')+(c.dmg>=CFG.dmgNoFlat?' and no Flat Out':'')+'. The crew can patch the car here, at the cost of rest.</p><button class="btn" onclick="fixIt()">'+(E.fixCost(r).where==='service'?'Extra service work: +'+E.fixCost(r).t+' time, −1 Damage':'Roadside fix: −'+E.fixCost(r).st+' Stamina, +'+E.fixCost(r).t+' time, −1 Damage')+'</button></div>';
+  return '<div class="fixbox"><p class="muted" style="margin:0 0 8px">Damage '+c.dmg+(c.dmg>=CFG.dmgLoose?': costing +1 time per card':'')+(c.dmg>=CFG.dmgNoFlat?' and no Flat Out':'')+'. The crew can patch the car here, at the cost of rest.</p><button class="btn" onclick="fixIt()"><kbd>R</kbd>'+(E.fixCost(r).where==='service'?'Extra service work: +'+E.fixCost(r).t+' time, −1 Damage':'Roadside fix: −'+E.fixCost(r).st+' Stamina, +'+E.fixCost(r).t+' time, −1 Damage')+'</button></div>';
 }
 function gauge(label,v,max){
   let s='';for(let i=0;i<max;i++)s+='<i'+(i<v?' class="on"':'')+'></i>';
@@ -469,7 +472,7 @@ function home(){
   h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
   h+='<div><div class="panel"><h3>Standings, '+WEEK+'</h3><div id="miniLb" class="muted">'+(API?'Loading…':'Leaderboard not connected.')+'</div></div>';
   h+='<div class="panel"><h3>Free play</h3><p class="muted">Any seed, with your values from Numbers. Not ranked. The same seed always gives the same rally.</p><div class="row"><input id="playSeed" class="inp" type="text" placeholder="Seed, or leave blank" style="flex:1;min-width:120px" aria-label="Seed"><button class="btn" onclick="startFree()">Start free play</button></div></div>';
-  h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p></div>'+histPanel()+'</div></div>';
+  h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p><p class="muted" style="margin:8px 0 0;font-size:14px">On a keyboard: <b style="color:var(--chalk)">1 2 3</b> (or S C F) to pick a pace, <b style="color:var(--chalk)">1–4</b> for tyres, <b style="color:var(--chalk)">Enter</b> for the next stage, <b style="color:var(--chalk)">R</b> to repair.</p></div>'+histPanel()+'</div></div>';
   return h;
 }
 // ---------- Personal history (kept in this browser) ----------
@@ -553,16 +556,16 @@ function render(){
     if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
     if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';
     h+='</div></div><div class="a-paces paces">';let fz=null;
-    [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="pace p-'+k+(pv.risk?' risk':'')+'" onclick="choose(\''+k+'\')"><b>'+n+'</b><small>'+pv.txt+'</small></button>';});
+    [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="pace p-'+k+(pv.risk?' risk':'')+'" onclick="choose(\''+k+'\')"><b><kbd>'+({safe:1,committed:2,flat:3})[k]+'</kbd>'+n+'</b><small>'+pv.txt+'</small></button>';});
     h+=(fz?'<p class="forced">'+fz+': every pace is driven as Safe'+(c.st<=0?', with +1 time per card':'')+'.</p>':'')+'<div class="row" style="margin-top:6px"><button class="btn" onclick="quit()">Abandon rally</button></div></div>';
   }else if(G.phase==='tyres'){
     const up=E.upcoming(r);
     h+='<div class="a-note panel"><h2>'+(r.stage===0?'Choose your starting tyres':r.svc[r.stage]==='long'?'Long service':'Service')+'</h2>'+(r.stage>0?'<p class="muted">Stage '+r.stage+' cost '+r.stageTimes[r.stageTimes.length-1]+' time. '+(r.svc[r.stage]==='long'?'The crew rests and the car is fully repaired.':'Stamina is restored and the mechanics fixed up to '+CFG.dmgShortRepair+' Damage.')+'</p>':'')+'<p>These tyres stay on until the next service: '+up.map(k=>'stage '+k+' ('+E.surfLabel(r.surf[k-1]).toLowerCase()+(r.night[k]?', '+r.night[k]:'')+')').join(', ')+'. It\'s '+E.WEATHER[r.weather].toLowerCase()+' now, and the weather can shift one step each stage.</p>';
     h+='<div class="choices">';
-    E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button class="pace" onclick="pickT('+ty+')"><b>'+n+'</b><small>'+(g[0]?g[0]+' good':'')+(g[1]?(g[0]?', ':'')+g[1]+' poor':'')+(g[2]?(g[0]||g[1]?', ':'')+g[2]+' no grip':'')+'</small></button>';});
+    E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button class="pace" onclick="pickT('+ty+')"><b><kbd>'+(ty+1)+'</kbd>'+n+'</b><small>'+(g[0]?g[0]+' good':'')+(g[1]?(g[0]?', ':'')+g[1]+' poor':'')+(g[2]?(g[0]||g[1]?', ':'')+g[2]+' no grip':'')+'</small></button>';});
     h+='</div><p class="muted" style="margin:10px 0 0">Grip counts are half-stages, assuming today\'s weather holds. Gravel tyres are the safe bet: poor away from gravel, never hopeless.</p>'+(r.stage>0?standings(G)+fixBox(c,r,CFG):'')+'</div>';
   }else if(G.phase==='stageEnd'){
-    h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()">Start stage '+(r.stage+1)+'</button></div>'+standings(G)+fixBox(c,r,CFG)+'</div>';
+    h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()"><kbd style="border-color:rgba(0,0,0,.25);color:#1b1500">Enter</kbd>Start stage '+(r.stage+1)+'</button></div>'+standings(G)+fixBox(c,r,CFG)+'</div>';
   }else if(G.phase==='done'){
     h+='<div class="a-note panel"><h2>'+(c.dead?'The crew didn\'t make it':c.retired?'Retired: car wrecked':'Rally complete')+'</h2><div class="clock"><b>'+c.time+'</b><span>total time lost</span></div><p class="muted" style="margin-top:10px">Stage times: '+r.stageTimes.join(', ')+'. '+c.dw+' Death Wish'+(c.dw===1?'':'es')+', '+c.flats+' Flat Out calls.</p>';
     if(G.ranked)h+='<p id="pbNote" class="sent" style="margin:8px 0 0">'+(G.histSaved?(G.pb?'New personal best for this week.':'Your best this week is '+(getHist(G.week)||{}).best+'.'):'')+'</p>'+standings(G,true)+submitBox();
@@ -672,6 +675,21 @@ window.runSim=()=>{
     out.innerHTML=h;
   },20);
 };
+
+// ---------- Keyboard shortcuts ----------
+// 1/2/3 or S/C/F: pace. 1-4: tyres at a service. Enter or Space: next stage. R: repair. ?: show shortcuts.
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
+  const tg=e.target;if(tg&&(tg.tagName==='INPUT'||tg.tagName==='TEXTAREA'||tg.tagName==='SELECT'||tg.isContentEditable))return;
+  if($('tut')||!G||$('v-play').classList.contains('hide'))return;
+  const k=e.key.toLowerCase();let done=true;
+  if(G.phase==='choose'){const p={'1':'safe','2':'committed','3':'flat',s:'safe',c:'committed',f:'flat'}[k];if(p)choose(p);else done=false;}
+  else if(G.phase==='tyres'&&/^[1-4]$/.test(k))pickT(+k-1);
+  else if(k==='r'&&(G.phase==='stageEnd'||G.phase==='tyres')&&E.canFix(G.r))fixIt();
+  else if(G.phase==='stageEnd'&&(k==='enter'||k===' '))nextStage();
+  else done=false;
+  if(done)e.preventDefault();
+});
 
 window.tab=t=>{['play','lb','sim','cfg'].forEach(k=>{$('v-'+k).classList.toggle('hide',k!==t);$('t-'+k).classList.toggle('on',k===t);});if(t==='lb')loadLb();if(t==='play'&&!G)render();};
 buildCfg();render();
