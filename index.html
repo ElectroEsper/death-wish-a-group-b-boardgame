@@ -56,6 +56,7 @@ p{margin:0 0 10px;max-width:62ch}
 .btn:disabled{opacity:.45;cursor:default}
 .inp{background:var(--asphalt);border:1px solid var(--kerb);border-radius:10px;padding:10px 12px;min-width:0}
 .inp::placeholder{color:#6d7985}
+select.inp{color:var(--chalk)}
 
 /* Stage strip: the rally as a roadbook line */
 .strip{display:flex;align-items:stretch;gap:3px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
@@ -198,6 +199,13 @@ p{margin:0 0 10px;max-width:62ch}
 /* Keyboard hints: only where there is a keyboard */
 kbd{display:none;font:600 12px var(--body);border:1px solid var(--kerb);border-bottom-width:2px;border-radius:5px;padding:0 5px;margin-right:8px;color:var(--dust);vertical-align:3px}
 @media(hover:hover) and (pointer:fine){kbd{display:inline-block}}
+/* Stage maps */
+.maps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.maps.many{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+.map small{display:block;color:var(--dust);font-size:13px;margin-bottom:3px}
+.map svg{width:100%;height:auto;max-height:170px;background:var(--asphalt);border-radius:10px;display:block}
+.mapkey{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dust);margin-top:6px}
+.mapkey i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-right:4px;vertical-align:2px}
 /* Pace choices */
 .paces{display:grid;gap:8px}
 .pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
@@ -295,8 +303,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=1fa5c57k';
-import {API_URL} from './site-config.js?v=1fa5c57k';
+import * as E from './engine.js?v=eff3cf4s';
+import {API_URL} from './site-config.js?v=eff3cf4s';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -449,23 +457,98 @@ let pendingStart=null;
 // First rally ever: offer the tour before driving.
 function firstTime(f){if(store.get('dw-tut')){f();return;}pendingStart=f;openTut();}
 
+// ---------- Stage maps ----------
+// The road is drawn from the stage's own corners: each bends it by its roadbook angle, faster corners make longer sections.
+const MAPLEN={'-1':70,9:56,8:48,7:42,6:36,5:30,4:26,3:22,2:18,0:14,1:12},MAPBEND={1:165,0:135,2:90,3:75,4:62,5:50,6:38,7:27,8:17,9:8,'-1':0};
+function mapSvg(cards,painted){
+  if(!cards||!cards.length)return '';
+  let x=0,y=0,h=-90;const segs=[];
+  cards.forEach(c=>{const pts=[[x,y]],a=MAPBEND[c.gi],d=c.side==='L'?-1:1,st=Math.max(1,Math.round(a/15));
+    for(let k=0;k<st;k++){h+=d*a/st;x+=Math.cos(h*Math.PI/180)*9;y+=Math.sin(h*Math.PI/180)*9;pts.push([x,y]);}
+    x+=Math.cos(h*Math.PI/180)*MAPLEN[c.gi];y+=Math.sin(h*Math.PI/180)*MAPLEN[c.gi];pts.push([x,y]);segs.push({pts,t:c.t});});
+  const all=segs.flatMap(s=>s.pts),mx=Math.min(...all.map(p=>p[0])),Mx=Math.max(...all.map(p=>p[0])),my=Math.min(...all.map(p=>p[1])),My=Math.max(...all.map(p=>p[1]));
+  const pad=14,sc=Math.min(260/Math.max(1,Mx-mx),200/Math.max(1,My-my)),W=(Mx-mx)*sc+pad*2,H=(My-my)*sc+pad*2;
+  const P=p=>((p[0]-mx)*sc+pad).toFixed(1)+','+((p[1]-my)*sc+pad).toFixed(1);
+  const col=t=>t<=1?'#6cc58a':t<=3?'#ffc20e':t<=5?'#ff8f1f':'#e2382b';
+  let o='<polyline points="'+all.map(P).join(' ')+'" fill="none" stroke="#34404c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>';
+  segs.forEach(s=>{o+='<polyline points="'+s.pts.map(P).join(' ')+'" fill="none" stroke="'+(painted?col(s.t??0):'#eef1f3')+'" stroke-width="'+(painted?4.5:2.5)+'" stroke-linecap="round" stroke-linejoin="round"/>';});
+  const a=all[0],z=all[all.length-1],[ax,ay]=P(a).split(','),[zx,zy]=P(z).split(',');
+  o+='<circle cx="'+ax+'" cy="'+ay+'" r="5" fill="#6cc58a"/><rect x="'+(zx-5)+'" y="'+(zy-5)+'" width="10" height="10" rx="2" fill="#eef1f3"/><rect x="'+(zx-5)+'" y="'+(zy-5)+'" width="5" height="5" fill="#1b2229"/><rect x="'+zx+'" y="'+zy+'" width="5" height="5" fill="#1b2229"/>';
+  return '<svg viewBox="0 0 '+W.toFixed(0)+' '+H.toFixed(0)+'" role="img" aria-label="Stage map">'+o+'</svg>';
+}
+const MAPKEY='<div class="mapkey"><span><i style="background:#6cc58a"></i>0–1 time</span><span><i style="background:#ffc20e"></i>2–3</span><span><i style="background:#ff8f1f"></i>4–5</span><span><i style="background:#e2382b"></i>6+</span></div>';
+function stageMaps(g){
+  const r=g.r,done=r.stageTimes.length,next=done<r.stages?done+1:0,cards=g.cards[done-1];let h='<div class="maps">';
+  if(done&&cards)h+='<div class="map"><small>Stage '+done+', how it went</small>'+mapSvg(cards,true)+'</div>';
+  if(next&&g.plan&&g.plan[next-1])h+='<div class="map"><small>Stage '+next+', the road ahead</small>'+mapSvg(g.plan[next-1],false)+'</div>';
+  return h+'</div>'+(done&&cards?MAPKEY:'');
+}
+function allMaps(g){
+  let h='<div class="maps many">';g.cards.forEach((c,i)=>{if(c&&c.length)h+='<div class="map"><small>Stage '+(i+1)+', '+g.r.stageTimes[i]+'</small>'+mapSvg(c,true)+'</div>';});
+  return h+'</div>'+MAPKEY;
+}
+
+// ---------- Solo mode: race bots on the same roads, results kept in this browser ----------
+const BOTS={
+  professor:['Lars Ekholm','Anna Lindqvist'],banker:['Marco Venturi'],gambler:['Jacques Morel'],veteran:['Gerd Hallmann'],
+  hothead:['Paddy Quinn'],rookie:['Tomi Rasila'],specialist:['Ingrid Sæter','Luis Prado','Didier Caron']
+};
+const SPEC_SURF=[2,1,0];
+const ROSTERS={
+  club:{name:'Club',about:'5 crews, mostly forgiving',list:[['rookie',0],['banker',0],['veteran',0],['hothead',0],['specialist',1]]},
+  national:{name:'National',about:'7 crews, every personality',list:[['professor',0],['banker',0],['gambler',0],['veteran',0],['hothead',0],['rookie',0],['specialist',1]]},
+  world:{name:'World',about:'9 factory crews: +1 Courage and +1 Luck',factory:true,list:[['professor',0],['professor',1],['gambler',0],['veteran',0],['hothead',0],['banker',0],['specialist',0],['specialist',1],['specialist',2]]}
+};
+function soloStore(){try{return JSON.parse(store.get('dw-solo')||'null')||{results:[],championship:null};}catch(e){return {results:[],championship:null};}}
+function makeBots(seed,event,diff){
+  const ro=ROSTERS[diff],cfg=ro.factory?{courage:E.DEF.courage+1,luck:E.DEF.luck+1}:null;
+  return ro.list.map(([p,k],i)=>{let a=(E.hashStr?0:0)+((seed.length*977+i*7919)>>>0)+[...seed].reduce((x,c)=>x*31+c.charCodeAt(0)>>>0,0);
+    const rng=()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};
+    return {persona:p,name:BOTS[p][k],surface:p==='specialist'?SPEC_SURF[k]:null,rng,lastDw:0,g:E.createGame(seed,cfg,event,{fate:'bot'+i+p})};});
+}
+function advanceBots(g){
+  const target=g.r.stageTimes.length,tot=x=>x.reduce((a,b)=>a+b,0);
+  const ctx=b=>{const k=b.g.r.stageTimes.length,all=g.solo.bots.map(x=>tot(x.g.r.stageTimes.slice(0,k))).concat([tot(g.r.stageTimes.slice(0,k))]);
+    const tilt=b.g.r.crew.dw>b.lastDw;b.lastDw=b.g.r.crew.dw;return {gap:tot(b.g.r.stageTimes)-Math.min(...all),tilt};};
+  g.solo.bots.forEach(b=>E.advanceBot(b,target,ctx));
+}
+window.startSolo=(again)=>{
+  const st=again||{seed:E.randomSeed(),rally:$('soloRally').value,diff:$('soloDiff').value};
+  if(st.rally==='random'){const ks=Object.keys(E.RALLIES);st.rally=ks[Math.floor(Math.random()*ks.length)];}
+  store.set('dw-solo-pref',JSON.stringify({rally:again?undefined:$('soloRally').value,diff:st.diff}));
+  firstTime(()=>{const ev=st.rally?{rally:st.rally}:null;G=E.createGame(st.seed,null,ev);G.plan=E.stagePlan(st.seed,null,ev);G.solo={...st,bots:makeBots(st.seed,ev,st.diff)};fresh=true;render();scrollTo(0,0);});
+};
+function soloPanel(){
+  const pref=(()=>{try{return JSON.parse(store.get('dw-solo-pref')||'{}');}catch(e){return {};}})();
+  const opt=(v,t,sel)=>'<option value="'+v+'"'+(v===sel?' selected':'')+'>'+t+'</option>';
+  let h='<div class="panel"><h3>Solo rally</h3><p class="muted">Race bot crews on the same roads. Results stay in this browser and never go on the leaderboard.</p><div class="row"><select id="soloRally" class="inp" aria-label="Country" style="flex:1;min-width:140px">'+opt('random','Random country',pref.rally)+opt('','Standard rally',pref.rally)+Object.entries(E.RALLIES).map(([k,v])=>opt(k,v.name,pref.rally)).join('')+'</select><select id="soloDiff" class="inp" aria-label="Difficulty">'+Object.entries(ROSTERS).map(([k,v])=>opt(k,v.name,pref.diff||'national')).join('')+'</select><button class="btn go" onclick="startSolo()">Start solo rally</button></div>';
+  const R=soloStore().results;
+  if(R.length)h+='<table class="mini" style="margin-top:12px"><tr><th>Date</th><th>Rally</th><th>Pos</th><th>Time</th></tr>'+R.slice(0,6).map(x=>'<tr><td>'+new Date(x.at).toLocaleDateString()+'</td><td>'+esc(x.rallyName)+' <span class="muted">'+x.diffName+'</span></td><td>'+(x.out?'DNF':'P'+x.pos+'/'+x.of)+'</td><td><b>'+x.time+'</b></td></tr>').join('')+'</table>';
+  return h+'</div>';
+}
+function saveSolo(g){
+  const S=soloStore(),c=g.r.crew,k=g.r.stageTimes.length,rows=g.solo.bots.map(b=>b.g.r.crew.time).concat([c.time]).sort((a,b)=>a-b);
+  S.results.unshift({at:Date.now(),seed:g.solo.seed,rally:g.solo.rally||'',rallyName:g.r.rally?g.r.rally.name:'Standard rally',diff:g.solo.diff,diffName:ROSTERS[g.solo.diff].name,time:c.time,pos:rows.indexOf(c.time)+1,of:rows.length,out:c.dead||c.retired});
+  S.results=S.results.slice(0,50);store.set('dw-solo',JSON.stringify(S));
+}
+
 // ---------- Drive ----------
 let G=null,fresh=false;
 const WEEK=E.isoWeek();
 // The weekly event: name, seed and surface theme can be set by the admin. Defaults until the server answers.
 let EVENT={week:WEEK,name:'',seed:E.weeklySeed(WEEK),surface:''};
 if(API)fetch(API+'/event?week='+WEEK).then(x=>x.json()).then(e=>{if(e&&e.seed){EVENT=e;if(!G)render();}}).catch(()=>{});
-window.startWeekly=()=>firstTime(()=>{G=E.createGame(EVENT.seed,null,EVENT);G.ranked=true;G.week=WEEK;loadField(G);fresh=true;render();scrollTo(0,0);});
+window.startWeekly=()=>firstTime(()=>{G=E.createGame(EVENT.seed,null,EVENT);G.plan=E.stagePlan(EVENT.seed,null,EVENT);G.ranked=true;G.week=WEEK;loadField(G);fresh=true;render();scrollTo(0,0);});
 window.startFree=seed=>{
   if(seed===undefined)seed=($('playSeed')&&$('playSeed').value.trim())||E.randomSeed();
-  firstTime(()=>{G=E.createGame(seed,custom);G.ranked=false;fresh=true;render();scrollTo(0,0);});
+  firstTime(()=>{G=E.createGame(seed,custom);G.plan=E.stagePlan(seed,custom);G.ranked=false;fresh=true;render();scrollTo(0,0);});
 };
 window.pickT=ty=>{E.chooseTyre(G,ty);fresh=true;render();};
 window.fixIt=()=>{E.fixCar(G);render();};
-window.choose=p=>{E.choosePace(G,p);fresh=true;render();};
+window.choose=p=>{E.choosePace(G,p);if(G.solo&&G.phase!=='choose')advanceBots(G);fresh=true;render();};
 window.nextStage=()=>{E.continueStage(G);fresh=true;render();};
 window.quit=()=>{G=null;render();};
-window.replayGame=()=>{G.ranked?startWeekly():startFree(G.seed);};
+window.replayGame=()=>{G.solo?startSolo({seed:G.solo.seed,rally:G.solo.rally,diff:G.solo.diff}):G.ranked?startWeekly():startFree(G.seed);};
 window.copyReplay=async()=>{try{await navigator.clipboard.writeText(G.seed+':'+G.moves);$('copyMsg').textContent='Replay code copied';}catch(e){$('copyMsg').textContent=G.seed+':'+G.moves;}};
 
 function home(){
@@ -478,6 +561,7 @@ function home(){
   h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
   h+='<div><div class="panel"><h3>Standings, '+WEEK+'</h3><div id="miniLb" class="muted">'+(API?'Loading…':'Leaderboard not connected.')+'</div></div>';
   h+='<div class="panel"><h3>Free play</h3><p class="muted">Any seed, with your values from Numbers. Not ranked. The same seed always gives the same rally.</p><div class="row"><input id="playSeed" class="inp" type="text" placeholder="Seed, or leave blank" style="flex:1;min-width:120px" aria-label="Seed"><button class="btn" onclick="startFree()">Start free play</button></div></div>';
+  h+=soloPanel();
   h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p><p class="muted" style="margin:8px 0 0;font-size:14px">On a keyboard: <b style="color:var(--chalk)">1 2 3</b> (or S C F) to pick a pace, <b style="color:var(--chalk)">1–4</b> for tyres, <b style="color:var(--chalk)">Enter</b> for the next stage, <b style="color:var(--chalk)">R</b> to repair.</p></div>'+histPanel()+'</div></div>';
   return h;
 }
@@ -512,7 +596,8 @@ async function loadField(g){
   try{const j=await (await fetch(API+'/leaderboard?week='+g.week)).json();if(syncSubmitted(g.week,j.entries||[])&&G===g&&G.phase==='done')render();g.field=(j.entries||[]).filter(e=>e.stages&&e.stages.length);if(G===g&&G.phase!=='choose')render();}catch(e){}
 }
 function standings(g,final){
-  if(!g.ranked||!API)return '';
+  if(g.solo)g.field=g.solo.bots.map(b=>({name:b.name+' · '+E.PERSONAS[b.persona].name.replace('The ','')+(b.g.r.crew.dead?' †':b.g.r.crew.retired?' ✕':''),stages:b.g.r.stageTimes}));
+  else if(!g.ranked||!API)return '';
   if(!g.field)return '<div class="stand muted">Loading other crews\' times…</div>';
   if(!g.field.length)return '<div class="stand muted">No other crews have finished this rally yet, so there\'s no one to compare with.</div>';
   const k=g.r.stageTimes.length,sum=a=>a.slice(0,k).reduce((x,y)=>x+y,0);
@@ -520,7 +605,7 @@ function standings(g,final){
   const rows=g.field.map(e=>({name:e.name+(e.name.toLowerCase()===me?' (your submitted run)':''),t:sum(e.stages)})).concat([{name:'You, this run',t:mine,you:true}]);
   rows.sort((a,b)=>a.t-b.t||(a.you?-1:b.you?1:0));
   const pos=rows.findIndex(x=>x.you),lead=rows[0].t;
-  const show=new Set([0,pos-1,pos,pos+1,rows.length-1].filter(i=>i>=0&&i<rows.length));
+  const show=new Set(g.solo?rows.map((_,i)=>i):[0,pos-1,pos,pos+1,rows.length-1].filter(i=>i>=0&&i<rows.length));
   let t='<table>',last=-1;
   [...show].sort((a,b)=>a-b).forEach(i=>{if(i>last+1)t+='<tr><td colspan="3" class="muted">…</td></tr>';const x=rows[i];t+='<tr class="'+(x.you?'you':'')+'"><td>P'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.t+' <span class="gap">'+(i?'+'+(x.t-lead):'')+'</span></td></tr>';last=i;});
   t+='</table>';
@@ -546,7 +631,7 @@ function render(){
    h+='<div class="a-mini minidash"><div class="mrow">'+md('Time',tm)+md('Stamina',c.st,c.st<=0?'out':'')+md('Courage',c.co,c.co<=0?'out':'')+md('Luck',c.lu,c.lu<=0?'out':'')+md('Damage',c.dmg+'/'+CFG.dmgMax,c.dmg>=CFG.dmgNoFlat?'out':c.dmg>=CFG.dmgLoose?'hot':'')+'</div>'
      +'<div class="cond2"><span>'+wxIcon(r.weather)+'<b>'+E.WEATHER[r.weather]+'</b></span><span>Track <b>'+E.TRACKC[r.track]+'</b></span><span>Tyres <b>'+E.TYRES[c.tyre]+'</b></span></div></div>';}
   // Dash
-  h+='<div class="a-dash panel"><div class="clock"><span>'+(G.ranked?(EVENT.name?esc(EVENT.name):'Weekly rally')+', '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
+  h+='<div class="a-dash panel"><div class="clock"><span>'+(G.solo?'Solo, '+ROSTERS[G.solo.diff].name+(G.r.rally?', '+G.r.rally.name:''):G.ranked?(EVENT.name?esc(EVENT.name):'Weekly rally')+', '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
   h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck)+dmgGauge(c,CFG)+'</div>';
   h+='<div class="readouts"><div><small>Stage</small><b>'+Math.max(1,r.stage)+' of '+r.stages+'</b></div><div><small>Card</small><b>'+(r.stage?Math.min(r.len,r.len-r.left+(G.ev?1:0))+' of '+r.len:'–')+'</b></div><div><small>Tyres</small><b>'+E.TYRES[c.tyre]+'</b></div><div><small>Death Wishes</small><b>'+c.dw+'</b></div></div>'+weatherScale(r,G.phase!=='done')+(c.dead?'<p class="dead">The crew is dead. The rest of the rally counts at maximum time.</p>':c.retired?'<p class="dead">The car is wrecked and the crew has retired. The rest of the rally counts at maximum time.</p>':'')+'</div>';
   if(G.phase==='choose'&&G.ev){
@@ -569,12 +654,14 @@ function render(){
     h+='<div class="a-note panel"><h2>'+(r.stage===0?'Choose your starting tyres':r.svc[r.stage]==='long'?'Long service':'Service')+'</h2>'+(r.stage>0?'<p class="muted">Stage '+r.stage+' cost '+r.stageTimes[r.stageTimes.length-1]+' time. '+(r.svc[r.stage]==='long'?'The crew rests and the car is fully repaired.':'Stamina is restored and the mechanics fixed up to '+CFG.dmgShortRepair+' Damage.')+'</p>':'')+'<p>These tyres stay on until the next service: '+up.map(k=>'stage '+k+' ('+E.surfLabel(r.surf[k-1]).toLowerCase()+(r.night[k]?', '+r.night[k]:'')+')').join(', ')+'. It\'s '+E.WEATHER[r.weather].toLowerCase()+' now, and the weather can shift one step each stage.</p>';
     h+='<div class="choices">';
     E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button class="pace" onclick="pickT('+ty+')"><b><kbd>'+(ty+1)+'</kbd>'+n+'</b><small>'+(g[0]?g[0]+' good':'')+(g[1]?(g[0]?', ':'')+g[1]+' poor':'')+(g[2]?(g[0]||g[1]?', ':'')+g[2]+' no grip':'')+'</small></button>';});
-    h+='</div><p class="muted" style="margin:10px 0 0">Grip counts are half-stages, assuming today\'s weather holds. Gravel tyres are the safe bet: poor away from gravel, never hopeless.</p>'+(r.stage>0?standings(G)+fixBox(c,r,CFG):'')+'</div>';
+    h+='</div><p class="muted" style="margin:10px 0 0">Grip counts are half-stages, assuming today\'s weather holds. Gravel tyres are the safe bet: poor away from gravel, never hopeless.</p>'+(r.stage>0?standings(G)+fixBox(c,r,CFG):'')+stageMaps(G)+'</div>';
   }else if(G.phase==='stageEnd'){
-    h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()"><kbd style="border-color:rgba(0,0,0,.25);color:#1b1500">Enter</kbd>Start stage '+(r.stage+1)+'</button></div>'+standings(G)+fixBox(c,r,CFG)+'</div>';
+    h+='<div class="a-note panel"><h2>Stage '+r.stage+' done</h2><div class="clock"><b>'+r.stageTimes[r.stageTimes.length-1]+'</b><span>time lost on this stage</span></div><div class="row" style="margin-top:14px"><button class="btn go" onclick="nextStage()"><kbd style="border-color:rgba(0,0,0,.25);color:#1b1500">Enter</kbd>Start stage '+(r.stage+1)+'</button></div>'+stageMaps(G)+standings(G)+fixBox(c,r,CFG)+'</div>';
   }else if(G.phase==='done'){
     h+='<div class="a-note panel"><h2>'+(c.dead?'The crew didn\'t make it':c.retired?'Retired: car wrecked':'Rally complete')+'</h2><div class="clock"><b>'+c.time+'</b><span>total time lost</span></div><p class="muted" style="margin-top:10px">Stage times: '+r.stageTimes.join(', ')+'. '+c.dw+' Death Wish'+(c.dw===1?'':'es')+', '+c.flats+' Flat Out calls.</p>';
+    if(G.solo){h+=standings(G,true)+'<p class="muted" style="margin:10px 0 0">'+(G.r.rally?G.r.rally.name+', ':'')+ROSTERS[G.solo.diff].name+' field. Saved in this browser only.</p>';if(!G.soloSaved){G.soloSaved=true;saveSolo(G);}}
     if(G.ranked)h+='<p id="pbNote" class="sent" style="margin:8px 0 0">'+(G.histSaved?(G.pb?'New personal best for this week.':'Your best this week is '+(getHist(G.week)||{}).best+'.'):'')+'</p>'+standings(G,true)+submitBox();
+    h+=allMaps(G);
     h+='<div class="row" style="margin-top:14px"><button class="btn go" onclick="replayGame()">Drive it again</button><button class="btn" onclick="quit()">Back to menu</button><button class="btn" onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="muted" role="status"></span></div></div>';
   }
   h+='<div class="a-log panel"><h3>Timing sheet</h3><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div></div>';

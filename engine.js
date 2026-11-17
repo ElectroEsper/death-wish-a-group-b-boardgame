@@ -248,6 +248,7 @@ function applyEvent(r,cards,pace,dry){
       if(hit){L.push({t:'Car damaged: +'+hit+' Damage',k:'bad'});addDmg(c,hit,L);}
       if(dw&&!c.retired)t+=deathWish(c,L);
     }
+    if(!dry)card.tl=t;
     T+=t;
   });
   if(!dry){c.stageTime+=T;r.left-=cards.length;}
@@ -338,9 +339,10 @@ export function weeklySeed(week){return 'DW-'+week+'-v'+RULES_VERSION;}
 // seed + moves fully determine the result.
 function use(g){RT=g.rt;RF=g.rf;CFG=g.cfg;if(g.deckCfg!==g.cfg){buildDecks();g.deckCfg=g.cfg;}}
 // event (optional): {surface} from the weekly rally's admin settings.
-export function createGame(seed,cfg,event){
-  const g={seed,event:event||null,cfg:{...DEF,...(cfg||{})},moves:'',log:[],phase:'tyres',ev:null};
-  g.rt=mulberry32(hashStr(seed+'|track'));g.rf=mulberry32(hashStr(seed+'|fate'));
+// opts.fate: a different luck stream on the same roads (used by solo bots).
+export function createGame(seed,cfg,event,opts){
+  const g={seed,event:event||null,cfg:{...DEF,...(cfg||{})},moves:'',log:[],phase:'tyres',ev:null,cards:[]};
+  g.rt=mulberry32(hashStr(seed+'|track'));g.rf=mulberry32(hashStr(seed+'|fate'+(opts&&opts.fate?'|'+opts.fate:'')));
   CFG=g.cfg;buildDecks();g.deckCfg=g.cfg;RT=g.rt;RF=g.rf;
   RALLY=(event&&RALLIES[event.rally])||null;
   THEME=RALLY?RALLY.surface:(event&&THEMES[event.surface]!==undefined)?event.surface||'':'';
@@ -364,7 +366,8 @@ export function fixCar(g){
 export function choosePace(g,p){
   use(g);if(g.phase!=='choose')throw new Error('No card to drive');
   g.moves+=p[0];
-  const res=applyEvent(g.r,g.ev,p,false);res.L.forEach(x=>g.log.push(x));
+  const st=g.r.stage,res=applyEvent(g.r,g.ev,p,false);res.L.forEach(x=>g.log.push(x));
+  (g.cards[st-1]||(g.cards[st-1]=[])).push(...g.ev.map(cd=>({gi:cd.gi,side:cd.side,t:cd.tl,pace:p})));
   g.ev=null;nextEvent(g);
 }
 function beginStage(g){
@@ -393,6 +396,72 @@ export function preview(g,p){
   if(p==='committed'&&!pv.forced&&CFG.comRisk>0&&g.ev.some(cd=>cd.mods.some(m=>m.rough||m.blind)))bits.push(CFG.comRisk+'-in-6 Luck card');
   if(pv.risk)bits.push('⚠ Death Wish');
   return {txt:bits.join(' · '),risk:pv.risk,forced:pv.forced,T:pv.T,ds,dc,dl};
+}
+
+// Every stage's corners, in order. The roads never depend on the crew's choices, so this can be shown before driving.
+export function stagePlan(seed,cfg,event){
+  const g=createGame(seed,cfg,event),out=[];let n=0;
+  while(g.phase!=='done'&&n++<5000){
+    if(g.phase==='tyres')chooseTyre(g,0);
+    else if(g.phase==='choose'){(out[g.r.stage-1]||(out[g.r.stage-1]=[])).push(...g.ev.map(cd=>({gi:cd.gi,side:cd.side})));choosePace(g,'safe');}
+    else continueStage(g);
+  }
+  // Stages after a crash are filled in automatically, so read the rest straight from the deck draws.
+  return out;
+}
+
+// ---------- Solo bots ----------
+// Each personality is a small rule set over the same previews a player sees.
+export const PERSONAS={
+  professor:{name:'The Professor',about:'Calculated. Never risks a Death Wish.'},
+  banker:{name:'The Banker',about:'Committed almost everywhere, Safe when tired.'},
+  gambler:{name:'The Gambler',about:'Flat Out whenever there is Luck to spend.'},
+  veteran:{name:'The Veteran',about:'Holds back, then attacks the final leg.'},
+  hothead:{name:'The Hothead',about:'Pushes harder the further behind, and after a bad stage.'},
+  rookie:{name:'The Rookie',about:'Inconsistent pace and the odd wrong tyre.'},
+  specialist:{name:'The Specialist',about:'Excellent on one surface, ordinary elsewhere.'}
+};
+export function botTyre(g,bot){
+  const r=g.r;let best=0,bs=1e9;
+  for(let ty=0;ty<4;ty++){const f=tyreForecast(r,ty),sc=f[1]+f[2]*2.5;if(sc<bs){bs=sc;best=ty;}}
+  if(bot.persona==='rookie'&&bot.rng()<.3)best=Math.floor(bot.rng()*4);
+  return best;
+}
+export function botPace(g,bot,ctx){
+  const r=g.r,c=r.crew,pc=preview(g,'committed'),pf=preview(g,'flat');
+  const rough=g.ev.some(cd=>cd.mods.some(m=>m.rough)),lastLeg=r.legOf[r.stage]===r.legs;
+  const safeC=!pc.risk&&c.co+pc.dc>=1&&c.st+pc.ds>=1;
+  const canFlat=!pf.risk&&!pf.forced&&c.dmg<CFG.dmgNoFlat-1;
+  switch(bot.persona){
+    case 'professor':
+      if(canFlat&&c.lu+pf.dl>=4&&c.co+pf.dc>=2&&!rough)return 'flat';
+      return safeC&&c.co+pc.dc>=2?'committed':'safe';
+    case 'banker':return safeC&&c.st+pc.ds>=2?'committed':'safe';
+    case 'gambler':if(canFlat&&c.lu>=2)return 'flat';return safeC?'committed':'safe';
+    case 'veteran':
+      if(lastLeg){if(canFlat&&c.lu>=2)return 'flat';return safeC?'committed':'safe';}
+      return safeC&&c.co+pc.dc>=4?'committed':'safe';
+    case 'hothead':
+      if((ctx.gap>12||ctx.tilt)&&canFlat&&c.lu>=1)return 'flat';
+      return safeC?'committed':'safe';
+    case 'rookie':{const x=bot.rng();if(x<.2&&canFlat)return 'flat';if(x<.75&&safeC)return 'committed';return 'safe';}
+    case 'specialist':{
+      const sp=r.surf[r.stage-1],home=sp[0]===bot.surface||sp[1]===bot.surface;
+      if(home&&canFlat&&c.lu+pf.dl>=3&&c.co+pf.dc>=2)return 'flat';
+      return safeC&&c.co+pc.dc>=(home?1:3)?'committed':'safe';}
+  }
+  return 'safe';
+}
+// Drive a bot until it has finished `stage` stages (or the rally). ctx is read at each stage start.
+export function advanceBot(bot,stage,ctxFn){
+  const g=bot.g;let n=0;
+  while(g.phase!=='done'&&n++<3000){
+    if(g.phase==='tyres'){if(g.r.stage>=stage)break;chooseTyre(g,botTyre(g,bot));bot.ctx=ctxFn(bot);}
+    else if(g.phase==='stageEnd'){if(g.r.stage>=stage)break;
+      while(canFix(g.r)&&g.r.crew.dmg>=CFG.dmgLoose&&(bot.persona==='professor'||bot.persona==='banker'||g.r.crew.dmg>=CFG.dmgNoFlat-1)&&g.r.crew.st>=fixCost(g.r).st+3)fixCar(g);
+      continueStage(g);bot.ctx=ctxFn(bot);}
+    else if(g.phase==='choose')choosePace(g,botPace(g,bot,bot.ctx||{gap:0}));
+  }
 }
 
 // Re-drive a rally from seed + moves with the official rules. Used by the leaderboard Worker.
