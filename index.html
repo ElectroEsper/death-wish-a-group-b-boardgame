@@ -206,6 +206,53 @@ kbd{display:none;font:600 12px var(--body);border:1px solid var(--kerb);border-b
 .map svg{width:100%;height:auto;max-height:170px;background:var(--asphalt);border-radius:10px;display:block}
 .mapkey{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dust);margin-top:6px}
 .mapkey i{display:inline-block;width:12px;height:4px;border-radius:2px;margin-right:4px;vertical-align:2px}
+/* Co-driver doubt on the pace note: fades, then a border that grows, then a shake */
+.note.d1{filter:saturate(.85);outline:3px dotted rgba(27,21,0,.35);outline-offset:-4px}
+.note.d2{filter:saturate(.6) brightness(1.04);outline:3px dashed rgba(27,21,0,.55);outline-offset:-4px}
+.note.d3{filter:saturate(.4) brightness(1.06);outline:3px dashed #e2382b;outline-offset:-4px}
+.note.d4{background:#232c35!important;color:#eef1f3!important;outline:3px solid #e2382b;outline-offset:-4px;background-image:repeating-linear-gradient(45deg,#2c3742 0 10px,#232c35 10px 20px)!important}
+.chip.q{background:transparent!important;border:1.5px dashed currentColor;font-weight:700;opacity:.8}
+.cobadge{display:inline-flex;align-items:center;gap:5px;font:600 13px var(--body);border-radius:999px;padding:2px 9px;background:rgba(0,0,0,.18)}
+.d3 .cobadge,.d4 .cobadge{background:#e2382b;color:#fff}
+.back{display:grid;place-items:center;text-align:center;padding:18px 0 8px}.back b{font:800 64px/1 var(--cond)}.back span{color:#9aa6b2;font-size:15px}
+@media(prefers-reduced-motion:no-preference){
+  .note.d3,.note.d4{animation:jitter 3s ease-in-out infinite}
+  @keyframes jitter{0%,90%,100%{transform:none}92%{transform:translateX(-2px)}94%{transform:translateX(2px)}96%{transform:translateX(-1px)}}
+}
+/* Atmosphere: night, fatigue, weather, car, road */
+body.night{background:#0b0f13}
+body.night .a-strip,body.night .a-dash,body.night .a-log,body.night .a-mini,body.night .top{filter:brightness(.55)}
+body.night .note{box-shadow:0 -40px 90px -20px rgba(255,226,140,.35)}
+body.night .note:not(.d4){background-image:linear-gradient(to top,rgba(255,255,255,.18),transparent 70%)}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:5;transition:box-shadow .6s;box-shadow:inset 0 0 0 0 rgba(0,0,0,0)}
+#wx{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+#wx i{position:absolute;top:-20px;display:block}
+#wx .rain{width:1.5px;height:16px;background:linear-gradient(to bottom,transparent,rgba(160,200,255,.55));transform:rotate(12deg)}
+#wx .snow{width:4px;height:4px;border-radius:50%;background:rgba(228,236,242,.8)}
+@media(prefers-reduced-motion:no-preference){
+  #wx .rain{animation:rainfall linear infinite}@keyframes rainfall{to{transform:translate(-120px,110vh) rotate(12deg)}}
+  #wx .snow{animation:snowfall linear infinite}@keyframes snowfall{to{transform:translate(40px,110vh)}}
+}
+@media(prefers-reduced-motion:reduce){#wx i{top:auto}}
+.pace.hesitant{background:#20262c;color:#7c8792;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 0l7 18-9 8 14 34' fill='none' stroke='%237c8792' stroke-width='1.2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:40% 50%}
+.pace.hesitant b{color:#9aa6b2}
+@media(prefers-reduced-motion:no-preference){.flicker .segs i.on,.flicker b{animation:flick 1.4s steps(2) infinite}@keyframes flick{50%{opacity:.35}}}
+.cracked{position:relative}.cracked>svg.cr{position:absolute;left:0;top:0;width:100%;height:min(100%,120px);pointer-events:none}
+.note.crooked{transform:rotate(-1.2deg)}
+.note.d3.crooked,.note.d4.crooked{transform:none}
+.note.skid{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90'%3E%3Cpath d='M0 86 Q70 76 160 30M14 90 Q84 80 160 46' fill='none' stroke='rgba(27,21,0,.22)' stroke-width='6' stroke-dasharray='5 3'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right bottom}
+.note.skid.g2{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='110'%3E%3Cpath d='M0 104 Q80 92 200 26M14 110 Q96 98 200 46M40 110 Q120 96 200 66' fill='none' stroke='rgba(27,21,0,.32)' stroke-width='7' stroke-dasharray='6 3'/%3E%3C/svg%3E")}
+@media(prefers-reduced-motion:no-preference){.note.slide{animation:slideIn .5s ease-out}@keyframes slideIn{0%{transform:translateX(-14px) rotate(-1.5deg)}60%{transform:translateX(6px) rotate(.8deg)}100%{transform:none}}}
+.note.rough:not(.skid){background-image:radial-gradient(rgba(27,21,0,.16) 1px,transparent 1.4px);background-size:7px 7px}
+.note.frost{box-shadow:inset 0 0 0 4px rgba(228,236,242,.9),inset 0 0 22px rgba(228,236,242,.7)}
+@media(prefers-reduced-motion:no-preference){
+  .fx-dw .a-note,.fx-dw .a-paces{animation:dwhit .5s ease-out}@keyframes dwhit{0%{box-shadow:0 0 0 6px #e2382b;transform:translateX(-6px)}30%{transform:translateX(5px)}60%{transform:translateX(-3px)}100%{box-shadow:0 0 0 0 rgba(226,56,43,0);transform:none}}
+  .fx-bad .a-note{animation:badhit .6s ease-out}@keyframes badhit{0%{box-shadow:0 0 0 5px #e2382b}100%{box-shadow:0 0 0 0 rgba(226,56,43,0)}}
+  .fx-good .a-note{animation:goodhit .6s ease-out}@keyframes goodhit{0%{box-shadow:0 0 0 5px #6cc58a}100%{box-shadow:0 0 0 0 rgba(108,197,138,0)}}
+  .fx-dmg .a-dash,.fx-dmg .a-mini{animation:dmghit .5s ease-out}@keyframes dmghit{0%{box-shadow:0 0 0 4px #ff8f1f}100%{box-shadow:0 0 0 0 rgba(255,143,31,0)}}
+}
+.fxmsg{font:600 14px var(--body);border-radius:8px;padding:6px 10px;margin-bottom:8px}
+.fxmsg.dw{background:#e2382b;color:#fff}.fxmsg.bad{background:rgba(226,56,43,.18);color:#ff8a7d}.fxmsg.good{background:rgba(108,197,138,.18);color:#6cc58a}.fxmsg.dmg{background:rgba(255,143,31,.18);color:#ffb062}
 /* Pace choices */
 .paces{display:grid;gap:8px}
 .pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
@@ -278,6 +325,7 @@ tr.me td{color:var(--lamp)}
     <button id="t-cfg" onclick="tab('cfg')">Numbers</button>
   </nav>
 </header>
+<div id="vig" aria-hidden="true"></div><div id="wx" aria-hidden="true"></div>
 <main>
   <section id="v-play"></section>
   <section id="v-lb" class="hide"></section>
@@ -303,8 +351,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=801e452w';
-import {API_URL} from './site-config.js?v=801e452w';
+import * as E from './engine.js?v=9fc103af';
+import {API_URL} from './site-config.js?v=9fc103af';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -333,6 +381,29 @@ if(!token){const a=new Uint8Array(18);crypto.getRandomValues(a);token=Array.from
 // ---------- Drawing helpers ----------
 // Roadbook tulip: a dot where you enter, an arrow showing how far the road turns.
 const BEND={Hairpin:165,Acute:135,Square:90,'1':75,'2':62,'3':50,'4':38,'5':27,'6':17,Flat:8};
+// A note the co-driver isn't sure of: a dashed arrow with a question mark.
+function qTulip(ink){
+  return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="84" r="6" fill="'+ink+'"/><path d="M50 84 L50 46" fill="none" stroke="'+ink+'" stroke-width="7" stroke-linecap="round" stroke-dasharray="9 9" opacity=".6"/><text x="50" y="40" text-anchor="middle" font-size="40" font-weight="800" fill="'+ink+'" font-family="Barlow Condensed,sans-serif">?</text></svg>';
+}
+// Cracks across a panel, one more per point of Damage.
+const CRACKS=['M12 0l9 14-7 7 13 18','M88 100l-6-16 11-7-4-19','M100 22l-18 6-3 13-15 4','M0 70l16-4 6 11 14-2','M46 0l-3 12 9 6-6 15','M60 100l4-14-10-6 5-12','M100 62l-14 2-4 10-12 1'];
+function cracks(n){if(n<=0)return '';let p='';for(let i=0;i<Math.min(n,CRACKS.length);i++)p+='<path d="'+CRACKS[i]+'"/>';return '<svg class="cr" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="rgba(238,241,243,.38)" stroke-width=".8" vector-effect="non-scaling-stroke">'+p+'</g></svg>';}
+// Weather on the glass: rain or snow, denser as it gets worse.
+let wxKey='';
+function weatherFx(r){
+  const el=$('wx'),on=G&&r&&r.weather>=3&&G.phase!=='done',key=on?r.weather+(r.winter?'w':'r'):'';
+  if(key===wxKey)return;wxKey=key;el.innerHTML='';if(!on)return;
+  const n=[0,0,0,22,45,80][r.weather],cls=r.winter?'snow':'rain';let h='';
+  for(let i=0;i<n;i++){const d=(r.winter?5:.7)+Math.random()*(r.winter?5:.6);h+='<i class="'+cls+'" style="left:'+(Math.random()*110)+'%;animation-duration:'+d.toFixed(2)+'s;animation-delay:-'+(Math.random()*d).toFixed(2)+'s;opacity:'+(.3+Math.random()*.6).toFixed(2)+(matchMedia('(prefers-reduced-motion: reduce)').matches?';top:'+(Math.random()*100)+'%':'')+'"></i>';}
+  el.innerHTML=h;
+}
+function atmosphere(){
+  const r=G&&G.r,c=r&&r.crew,driving=G&&G.phase==='choose';
+  document.body.classList.toggle('night',!!(driving&&r.night[r.stage]));
+  const ratio=c?c.st/G.cfg.stamina:1,v=G&&ratio<.34&&!E.isOut(c)?Math.round((.34-ratio)*3*80)+40:0;
+  $('vig').style.boxShadow=v?'inset 0 0 '+v+'px '+Math.round(v/2)+'px rgba(0,0,0,.78)':'none';
+  weatherFx(r);
+}
 function tulip(cd,ink){
   // Drawn like a roadbook: stem from the entry dot, an arc as tight as the corner, then the exit arrow.
   const a=cd.gi<0?0:BEND[E.GRADES[cd.gi]],dir=cd.side==='L'?-1:1,R=14,rad=Math.PI/180;
@@ -439,6 +510,8 @@ function tutSlides(){
     pic:'<div class="paces">'+pb('safe','Safe','+4 time')+pb('committed','Committed','+1 time · −1 Stam · −2 Cour')+pb('flat','Flat Out','−2 time · −2 Cour · + Luck card')+'</div>'},
    {h:'Watch your crew',p:'Out of Stamina or Courage and you\'re forced to drive Safe. Out of Luck when you need it and you draw a Death Wish. Pushing over rough ground, on the wrong tyres or with bad luck damages the car: 4 Damage slows you, 7 rules out Flat Out, 8 wrecks it. Services repair it; patching it yourself costs time and Stamina.',
     pic:'<div class="gauges" style="margin:0">'+gauge('Stamina',7,10)+gauge('Courage',2,8)+gauge('Luck',1,6)+dmgGauge({dmg:5},E.DEF)+'</div><div class="ladder"><div><span>Close Shave</span><span class="muted">+1 Damage</span></div><div><span>Could\'ve Been Worse</span><span class="muted">+3 time, +2 Damage</span></div><div><span>Heavy Off</span><span style="color:var(--lamp)">+10 time, +3 Damage</span></div><div><span>Dead</span><span style="color:var(--flag)">rally over</span></div></div>'},
+   {h:'Keep your co-driver with you',p:'Your co-driver reads every note. Pushing hard, linked corners, darkness and storms wear them down. When they slip, details turn into ?, then the corner itself, and finally the whole card. The big dangers are the last thing they lose. Driving Safe lets them catch up.',
+    pic:'<div class="minicards" style="grid-template-columns:repeat(3,1fr)"><div style="background:var(--lamp)">'+tulip({gi:6,side:'R'},'#1b1500')+'Right 4</div><div style="background:#ffd65c;outline:3px dashed rgba(27,21,0,.55);outline-offset:-4px">'+qTulip('#1b1500')+'Right ? <span class="chip q" style="font-size:12px">?</span></div><div style="background:#232c35;color:#eef1f3;outline:3px solid #e2382b;outline-offset:-4px"><b style="font:800 40px var(--cond);display:block;padding:8px 0">?</b>Lost</div></div>'+gauge('Focus',3,6)},
    {h:'Plan your tyres',p:'Stages run on tarmac, gravel or snow, grouped into legs. You only change tyres at a service, so pick for the stages ahead. Wrong tyres cost time on every card.',
     pic:strip(demo,null)+'<div class="gripmini"><span></span><span>Tarmac dry</span><span>Tarmac wet</span><span>Gravel</span><span>Snow</span><span>Slick</span><span class="g0">Good</span><span class="g2">None</span><span class="g2">None</span><span class="g2">None</span><span>Gravel</span><span class="g1">Poor</span><span class="g1">Poor</span><span class="g0">Good</span><span class="g1">Poor</span></div>'},
    {h:'Read the sky',p:'Weather can shift one step each stage, and rain wears the track down. Dark stages at dawn or night make jumps, crests and blind corners costlier. Now go drive.',
@@ -557,7 +630,7 @@ window.startFree=seed=>{
 };
 window.pickT=ty=>{E.chooseTyre(G,ty);fresh=true;render();};
 window.fixIt=()=>{E.fixCar(G);render();};
-window.choose=p=>{E.choosePace(G,p);if(G.solo&&G.phase!=='choose')advanceBots(G);fresh=true;render();};
+window.choose=p=>{const c0=G.r.crew,b={dw:c0.dw,dmg:c0.dmg,log:G.log.length};E.choosePace(G,p);{const c=G.r.crew,nw=G.log.slice(b.log).map(x=>x.t).join(' ');G.fx=c.dw>b.dw?'dw':/Luck card[^·]*Bad/.test(nw)?'bad':c.dmg>b.dmg?'dmg':/Luck card[^·]*Good/.test(nw)?'good':'';G.fxText=G.fx==='dw'?(nw.match(/DEATH WISH: ([^(]+)/)||[])[1]:'';}if(G.solo&&G.phase!=='choose')advanceBots(G);fresh=true;render();};
 window.nextStage=()=>{E.continueStage(G);fresh=true;render();};
 window.quit=()=>{G=null;render();};
 window.replayGame=()=>{G.solo?startSolo({seed:G.solo.seed,rally:G.solo.rally,diff:G.solo.diff}):G.ranked?startWeekly():startFree(G.seed);};
@@ -630,36 +703,52 @@ async function loadMini(){
     const j=await (await fetch(API+'/leaderboard?week='+WEEK)).json(),e=(j.entries||[]).slice(0,5);
     if(syncSubmitted(WEEK,j.entries||[])&&!G){render();return;}
     $('miniLb').innerHTML=e.length?'<table class="mini">'+e.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td><b>'+x.time+'</b></td></tr>').join('')+'</table><p style="margin:10px 0 0"><button class="btn" onclick="tab(\'lb\')">Full leaderboard</button></p>':'No runs yet this week. Be the first.';
-  }catch(e){$('miniLb').textContent='Couldn\'t reach the leaderboard.';}
+  }catch(e){const m=$('miniLb');if(m)m.textContent='Couldn\'t reach the leaderboard.';}
 }
 
 function render(){
   const el=$('v-play');
-  if(!G){document.body.classList.remove('driving');el.innerHTML=home();loadMini();return;}
+  if(!G){document.body.classList.remove('driving','night');$('vig').style.boxShadow='none';$('wx').innerHTML='';wxKey='';el.innerHTML=home();loadMini();return;}
   const r=G.r,c=r.crew,CFG=G.cfg;
-  let h='<div class="game'+(G.phase==='choose'?'':' calm')+'"><div class="a-strip panel">'+strip(r,G.phase)+'</div>';
+  let h='<div class="game'+(G.phase==='choose'?'':' calm')+(G.fx?' fx-'+G.fx:'')+'"><div class="a-strip panel">'+strip(r,G.phase)+'</div>';
+  const flatRisk=G.phase==='choose'&&G.ev&&!E.isOut(c)&&E.preview(G,'flat').risk,fo=c.focus??E.FOCUS_MAX;
   {const md=(l,v,cl)=>'<div class="'+(cl||'')+'"><small>'+l+'</small><b>'+v+'</b></div>';
    const tm=c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0);
-   h+='<div class="a-mini minidash"><div class="mrow">'+md('Time',tm)+md('Stamina',c.st,c.st<=0?'out':'')+md('Courage',c.co,c.co<=0?'out':'')+md('Luck',c.lu,c.lu<=0?'out':'')+md('Damage',c.dmg+'/'+CFG.dmgMax,c.dmg>=CFG.dmgNoFlat?'out':c.dmg>=CFG.dmgLoose?'hot':'')+'</div>'
+   h+='<div class="a-mini minidash cracked">'+cracks(c.dmg)+'<div class="mrow">'+md('Time',tm)+md('Stamina',c.st,c.st<=0?'out':'')+md('Courage',c.co,c.co<=0?'out':'')+md('Luck',c.lu,(c.lu<=0?'out':'')+(flatRisk?' flicker':''))+md('Focus',fo,fo<=1?'out':fo<=2?'hot':'')+md('Damage',c.dmg+'/'+CFG.dmgMax,c.dmg>=CFG.dmgNoFlat?'out':c.dmg>=CFG.dmgLoose?'hot':'')+'</div>'
      +'<div class="cond2"><span>'+wxIcon(r.weather,r.winter)+'<b>'+E.wxName(r,r.weather)+'</b></span><span>Track <b>'+E.TRACKC[r.track]+'</b></span><span>Tyres <b>'+E.TYRES[c.tyre]+'</b></span></div></div>';}
   // Dash
-  h+='<div class="a-dash panel"><div class="clock"><span>'+(G.solo?'Solo, '+ROSTERS[G.solo.diff].name+(G.r.rally?', '+G.r.rally.name:''):G.ranked?(EVENT.name?esc(EVENT.name):'Weekly rally')+', '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
-  h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck)+dmgGauge(c,CFG)+'</div>';
+  h+='<div class="a-dash panel cracked">'+cracks(c.dmg)+'<div class="clock"><span>'+(G.solo?'Solo, '+ROSTERS[G.solo.diff].name+(G.r.rally?', '+G.r.rally.name:''):G.ranked?(EVENT.name?esc(EVENT.name):'Weekly rally')+', '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
+  h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck).replace('class="gauge','class="gauge'+(flatRisk?' flicker':''))+dmgGauge(c,CFG)+gauge('Focus',fo,E.FOCUS_MAX)+'</div>';
   h+='<div class="readouts"><div><small>Stage</small><b>'+Math.max(1,r.stage)+' of '+r.stages+'</b></div><div><small>Card</small><b>'+(r.stage?Math.min(r.len,r.len-r.left+(G.ev?1:0))+' of '+r.len:'–')+'</b></div><div><small>Tyres</small><b>'+E.TYRES[c.tyre]+'</b></div><div><small>Death Wishes</small><b>'+c.dw+'</b></div></div>'+weatherScale(r,G.phase!=='done')+(c.dead?'<p class="dead">The crew is dead. The rest of the rally counts at maximum time.</p>':c.retired?'<p class="dead">The car is wrecked and the crew has retired. The rest of the rally counts at maximum time.</p>':'')+'</div>';
   if(G.phase==='choose'&&G.ev){
-    const tier=difficulty(G);let pips='';for(let i=0;i<4;i++)pips+='<i'+(i<=tier?' class="on"':'')+'></i>';
-    h+='<div class="a-note note t'+tier+(fresh?' fresh':'')+'"><div class="diff"><span class="count">Stage '+r.stage+', card '+Math.min(r.len,r.len-r.left+1)+' of '+r.len+'</span><span class="row" style="gap:8px;font:700 17px var(--cond)">'+TIER[tier]+'<span class="pips">'+pips+'</span></span></div>'+progress(r,G.ev.length)+'<div class="calls">';
-    G.ev.forEach((cd,i)=>{
-      if(i===1)h+='<div class="into">into</div>';
-      h+='<div class="call">'+tulip(cd,tier===3?'#fff':'#1b1500')+'<div><div class="say">'+sayCard(cd)+'</div>'+(cd.mods.length||cd.ice?'<div class="chips">'+(cd.ice?'<span class="chip">Sheet ice<small>no grip without Snow tyres</small></span>':'')+cd.mods.map(modChip).join('')+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
-    });
+    const f=c.focus??E.FOCUS_MAX,V=E.mask(G.ev,f),tier=difficulty(G);
+    const doubt=f>=5?0:f>=3?(V.some(v=>v.mods.some(m=>!m.known))?1:0):f===2?2:f===1?3:4;
     const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],ice=G.ev.some(cd=>cd.ice),gr=ice&&c.tyre!==3?2:E.grip(c.tyre,su,E.isWet(r.weather),r.winter);
-    h+='</div><div class="cond"><p>'+E.SURF[su]+(ice?', sheet ice':E.isWet(r.weather)?(r.winter&&su!==2?', under snow':', wet'):', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
+    const iceSeen=V.some(v=>v.iceKnown),ink=tier===3&&doubt<4?'#fff':doubt===4?'#eef1f3':'#1b1500';
+    let pips='';for(let i=0;i<4;i++)pips+='<i'+(i<=tier?' class="on"':'')+'></i>';
+    const cls='a-note note t'+tier+' d'+doubt+(fresh?' fresh':'')+(gr&&doubt<4?' skid g'+gr+(fresh&&gr===2?' slide':''):'')+(r.track>=2&&doubt<4?' rough':'')+(c.dmg>=CFG.dmgLoose?' crooked':'')+(iceSeen&&doubt<4?' frost':'');
+    const badge=doubt>=2?'<span class="cobadge"><i aria-hidden="true">!</i>'+(doubt===4?'Co-driver lost':doubt===3?'Co-driver nearly lost':'Co-driver unsure')+'</span>':'';
+    h+='<div class="'+cls+'">'+(G.fx?'<div class="fxmsg '+G.fx+'">'+({dw:'Death Wish: '+(G.fxText||'').trim(),bad:'Bad luck on that one.',good:'Good luck on that one.',dmg:'The car took damage.'})[G.fx]+'</div>':'')+'<div class="diff"><span class="count">Stage '+r.stage+', card '+Math.min(r.len,r.len-r.left+1)+' of '+r.len+'</span><span class="row" style="gap:8px;font:700 17px var(--cond)">'+(badge||(TIER[tier]+'<span class="pips">'+pips+'</span>'))+'</span></div>'+progress(r,G.ev.length);
+    if(doubt===4){h+='<div class="back"><b>?</b><span>No call. Your co-driver has lost the place in the notes.</span></div>';}
+    else{
+      h+='<div class="calls">';
+      G.ev.forEach((cd,i)=>{const v=V[i];
+        if(i===1)h+='<div class="into">into</div>';
+        const say=(cd.gi<0&&v.gradeKnown)?'Straight':(v.sideKnown?(cd.side==='L'?'Left ':'Right '):'? ')+(v.gradeKnown?E.GRADES[cd.gi]:'?');
+        let chips=(cd.ice?(v.iceKnown?'<span class="chip">Sheet ice<small>no grip without Snow tyres</small></span>':'<span class="chip q">?</span>'):'')+cd.mods.map((m,j)=>v.mods[j].known?modChip(m):'<span class="chip q">?</span>').join('')+(v.extraQ?'<span class="chip q">?</span>':'');
+        h+='<div class="call">'+(v.gradeKnown?tulip(cd,ink):qTulip(ink))+'<div><div class="say">'+say+'</div>'+(chips?'<div class="chips">'+chips+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
+      });
+      h+='</div>';
+    }
+    h+='<div class="cond"><p>'+E.SURF[su]+(ice&&iceSeen?', sheet ice':E.isWet(r.weather)?(r.winter&&su!==2?', under snow':', wet'):', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
+    if(doubt>=1)h+='<p><span class="warn">'+(doubt>=3?'Your co-driver is losing track. Anything marked ? is still out there, and the costs below leave it out. Driving Safe lets them catch up.':'Your co-driver missed some details, marked ?. The costs below leave them out.')+'</span></p>';
     if(c.dmg>=CFG.dmgLoose)h+='<p><span class="warn">Damaged car ('+c.dmg+'): +1 time per card'+(c.dmg>=CFG.dmgNoFlat?', no Flat Out':'')+'.</span></p>';
     if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
     if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';
     h+='</div></div><div class="a-paces paces">';let fz=null;
-    [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;h+='<button class="pace p-'+k+(pv.risk?' risk':'')+'" onclick="choose(\''+k+'\')"><b><kbd>'+({safe:1,committed:2,flat:3})[k]+'</kbd>'+n+'</b><small>'+pv.txt+'</small></button>';});
+    [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;if(k==='flat')G.flatRisk=pv.risk;
+      const hes=k==='flat'&&!pv.forced&&c.co<=2;
+      h+='<button class="pace p-'+k+(pv.risk?' risk':'')+(hes?' hesitant':'')+'" onclick="choose(\''+k+'\')"><b><kbd>'+({safe:1,committed:2,flat:3})[k]+'</kbd>'+n+'</b><small>'+pv.txt+'</small></button>';});
     h+=(fz?'<p class="forced">'+fz+': every pace is driven as Safe'+(c.st<=0?', with +1 time per card':'')+'.</p>':'')+'<div class="row" style="margin-top:6px"><button class="btn" onclick="quit()">Abandon rally</button></div></div>';
   }else if(G.phase==='tyres'){
     const up=E.upcoming(r);
@@ -677,7 +766,7 @@ function render(){
     h+='<div class="row" style="margin-top:14px"><button class="btn go" onclick="replayGame()">Drive it again</button><button class="btn" onclick="quit()">Back to menu</button><button class="btn" onclick="copyReplay()">Copy replay code</button><span id="copyMsg" class="muted" role="status"></span></div></div>';
   }
   h+='<div class="a-log panel"><h3>Timing sheet</h3><div class="log">'+G.log.slice().reverse().map(x=>'<div class="'+x.k+'">'+esc(x.t)+'</div>').join('')+'</div></div></div>';
-  el.innerHTML=h;fresh=false;document.body.classList.add('driving');
+  el.innerHTML=h;fresh=false;G.fx='';document.body.classList.add('driving');atmosphere();
   const cur=el.querySelector('.st.now')||el.querySelector('.st:not(.done)');const sb=el.querySelector('.strip');
   if(cur&&sb&&sb.scrollWidth>sb.clientWidth)sb.scrollLeft=Math.max(0,cur.offsetLeft-sb.offsetLeft-sb.clientWidth/2+cur.offsetWidth/2);
   if(G.phase==='done'&&G.ranked&&!G.histSaved){G.histSaved=true;saveHistory(G);}

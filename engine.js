@@ -139,7 +139,7 @@ function newRally(){
   const rough={};if(RALLY&&RALLY.special==='panzer')legSpan.forEach(([a,b])=>{rough[a+rnd(b-a+1)-1]=true;});
   const st=RALLY?RALLY.start:[0,5];
   return {stages,legs,svc,legOf,night,profile,surf,rough,rally:RALLY,stage:0,weather:st[0]+rnd(st[1]-st[0]+1)-1,track:rnd(4)-1,left:0,len:0,stageTimes:[],
-    crew:{tyre:2,st:CFG.stamina,co:CFG.courage,lu:CFG.luck,time:0,dw:0,dwLog:[],dead:false,retired:false,dmg:0,fixes:0,terminal:false,flat:false,stageTime:0,fatigue:0,shaken:0,flats:0,luckOut:0}};
+    crew:{tyre:2,focus:FOCUS_MAX,strain:0,st:CFG.stamina,co:CFG.courage,lu:CFG.luck,time:0,dw:0,dwLog:[],dead:false,retired:false,dmg:0,fixes:0,terminal:false,flat:false,stageTime:0,fatigue:0,shaken:0,flats:0,luckOut:0}};
 }
 function startStage(r){
   r.stage++;const L=[];
@@ -191,8 +191,33 @@ export function forecast(r){
   return {weather:wx,track:tr};
 }
 export const isOut=c=>c.dead||c.retired;
+// ---------- Co-driver Focus ----------
+// Focus never changes a result: it only changes what the co-driver manages to call.
+// Pushing, linked cards, darkness, heavy weather and long stages build strain; every 5 strain costs 1 Focus.
+// A card driven Safe lets the co-driver catch up (+1). Stage ends +2, any service restores it fully. A Death Wish costs 2.
+export const FOCUS_MAX=6;
+function coDriver(r,c,cards,pace){
+  if(pace==='safe'){c.focus=Math.min(FOCUS_MAX,c.focus+1);c.strain=0;return;}
+  c.strain+=(pace==='flat'?2:1)+(cards.length>1?2:0)+(r.night[r.stage]?1:0)+(r.weather>=4?1:0)+((r.len-r.left)>=10?1:0);
+  while(c.strain>=5){c.strain-=5;c.focus=Math.max(0,c.focus-1);}
+}
+// What the co-driver calls at a given Focus. Least important details go first; the big dangers last.
+const MOD_TIER={Long:1,Short:1,Widen:1,Opens:1,Narrow:2,Bump:2,Dip:2,"Don't Cut":2,Caution:2,Tightens:2,Jump:3,Unseen:3,Deceptive:3,'Water Splash':3,'Over Crest':3,'Double Caution':4,'Triple Caution':4};
+export function mask(cards,focus){
+  const hideUpTo=focus>=5?0:focus===4?1:focus===3?2:focus===2?2:focus===1?3:4;
+  return cards.map(cd=>({
+    faceDown:focus<=0,gradeKnown:focus>=3,sideKnown:focus>=2,extraQ:focus<=2&&focus>0,
+    gi:cd.gi,side:cd.side,
+    mods:cd.mods.map(m=>({n:m.n,known:(MOD_TIER[m.n]||2)>hideUpTo})),
+    ice:!!cd.ice,iceKnown:!!cd.ice&&hideUpTo<3}));
+}
+// The cards as the crew believes them to be: unknown details are left out of the cost preview.
+function believed(cards,focus){
+  const v=mask(cards,focus);
+  return cards.map((cd,i)=>({...cd,gi:v[i].gradeKnown&&!v[i].faceDown?cd.gi:-1,mods:v[i].faceDown?[]:cd.mods.filter((m,j)=>v[i].mods[j].known),ice:v[i].iceKnown}));
+}
 function deathWish(c,L){
-  c.dw++;const k=fpick(DW);c.dwLog.push(k);
+  c.dw++;c.focus=Math.max(0,(c.focus??FOCUS_MAX)-2);const k=fpick(DW);c.dwLog.push(k);
   if(k==='close'){c.co=Math.max(0,c.co-2);L.push({t:'DEATH WISH: Close Shave (−2 Courage, +1 Damage)',k:'bad'});addDmg(c,1,L);return 0;}
   if(k==='worse'){c.co=Math.max(0,c.co-2);L.push({t:"DEATH WISH: Could've Been Worse (+3 time, −2 Courage, +2 Damage)",k:'bad'});addDmg(c,2,L);return 3;}
   if(k==='terminal'){c.co=0;c.terminal=true;L.push({t:'DEATH WISH: Heavy Off (+'+CFG.terminalTime+' time, Courage to 0, +3 Damage, Safe for rest of stage)',k:'bad'});addDmg(c,3,L);return CFG.terminalTime;}
@@ -256,6 +281,7 @@ function applyEvent(r,cards,pace,dry){
     if(!dry)card.tl=t;
     T+=t;
   });
+  if(!dry&&!isOut(c))coDriver(r,c,cards,pace);
   if(!dry){c.stageTime+=T;r.left-=cards.length;}
   return {T,L,crew:c,risk,forced};
 }
@@ -266,13 +292,13 @@ function endStage(r){
     if(r.night[r.stage]){c.st=Math.max(0,c.st-1);L.push((r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage upkeep: −1 Stamina');}
     if(r.weather===4){c.st=Math.max(0,c.st-1);L.push(wxName(r,4)+' upkeep: −1 Stamina');}
     if(r.weather===5){c.st=Math.max(0,c.st-1);c.co=Math.max(0,c.co-1);L.push(wxName(r,5)+' upkeep: −1 Stamina, −1 Courage');}
-    c.st=Math.min(CFG.stamina,c.st+CFG.recovery);
+    c.st=Math.min(CFG.stamina,c.st+CFG.recovery);c.focus=Math.min(FOCUS_MAX,(c.focus??FOCUS_MAX)+2);c.strain=0;
     if(CFG.stageCourage)c.co=Math.min(CFG.courage,c.co+CFG.stageCourage);
     const lg=CFG.stageLuck+(c.flat?0:CFG.cleanLuck);
     if(lg&&c.lu<CFG.luck){c.lu=Math.min(CFG.luck,c.lu+lg);L.push((c.flat?'Stage end':'Clean stage')+': +'+lg+' Luck');}
     const sv=r.svc[r.stage];
-    if(sv==='long'&&r.stage<r.stages){c.st=CFG.stamina;c.co=CFG.courage;c.lu=Math.min(CFG.luck,c.lu+CFG.longLuck);c.dmg=0;L.push('LONG SERVICE, end of leg '+r.legOf[r.stage]+': car fully repaired, Stamina and Courage full, +'+CFG.longLuck+' Luck');}
-    else if(sv==='short'&&r.stage<r.stages){c.st=CFG.stamina;c.co=Math.min(CFG.courage,c.co+CFG.serviceCo);const fx=Math.min(c.dmg,CFG.dmgShortRepair+(r.rally&&r.rally.special==='safari'?1:0));c.dmg-=fx;L.push('SERVICE: Stamina restored, +'+CFG.serviceCo+' Courage'+(fx?', '+fx+' Damage repaired':''));}
+    if(sv==='long'&&r.stage<r.stages){c.focus=FOCUS_MAX;c.st=CFG.stamina;c.co=CFG.courage;c.lu=Math.min(CFG.luck,c.lu+CFG.longLuck);c.dmg=0;L.push('LONG SERVICE, end of leg '+r.legOf[r.stage]+': car fully repaired, Stamina and Courage full, +'+CFG.longLuck+' Luck');}
+    else if(sv==='short'&&r.stage<r.stages){c.focus=FOCUS_MAX;c.st=CFG.stamina;c.co=Math.min(CFG.courage,c.co+CFG.serviceCo);const fx=Math.min(c.dmg,CFG.dmgShortRepair+(r.rally&&r.rally.special==='safari'?1:0));c.dmg-=fx;L.push('SERVICE: Stamina restored, +'+CFG.serviceCo+' Courage'+(fx?', '+fx+' Damage repaired':''));}
   }
   const st=Math.max(0,c.stageTime);c.time+=st;r.stageTimes.push(st);
   return L;
@@ -392,15 +418,18 @@ function finishStage(g){
   g.log.push({t:'Stage '+g.r.stage+' time: '+g.r.stageTimes[g.r.stageTimes.length-1]+' · Total: '+g.r.crew.time,k:'hd'});
   g.phase=g.r.stage>=g.r.stages?'done':g.r.svc[g.r.stage]?'tyres':'stageEnd';
 }
-export function preview(g,p){
+export function preview(g,p,opts){
   use(g);
-  const pv=applyEvent(g.r,g.ev,p,true),c0=g.r.crew,c=pv.crew,bits=[(pv.T<0?'−'+(-pv.T):'+'+pv.T)+' time'];
+  const full=opts&&opts.full,f=g.r.crew.focus??FOCUS_MAX,ev=full?g.ev:believed(g.ev,f);
+  const hidden=!full&&mask(g.ev,f).some(v=>v.faceDown||!v.gradeKnown||v.mods.some(m=>!m.known)||v.extraQ);
+  const pv=applyEvent(g.r,ev,p,true),c0=g.r.crew,c=pv.crew,bits=[(pv.T<0?'−'+(-pv.T):'+'+pv.T)+' time'];
   const ds=c.st-c0.st,dc=c.co-c0.co,dl=c.lu-c0.lu;
   if(ds)bits.push((ds>0?'+':'')+ds+' Stam');if(dc)bits.push((dc>0?'+':'')+dc+' Cour');if(dl)bits.push((dl>0?'+':'')+dl+' Luck');
   if(p==='flat'&&!pv.forced)bits.push('+ Luck card');
   if(p==='committed'&&!pv.forced&&CFG.comRisk>0&&g.ev.some(cd=>cd.mods.some(m=>m.rough||m.blind)))bits.push(CFG.comRisk+'-in-6 Luck card');
   if(pv.risk)bits.push('⚠ Death Wish');
-  return {txt:bits.join(' · '),risk:pv.risk,forced:pv.forced,T:pv.T,ds,dc,dl};
+  if(hidden)bits.push('+ ?');
+  return {hidden,txt:bits.join(' · '),risk:pv.risk,forced:pv.forced,T:pv.T,ds,dc,dl};
 }
 
 // Every stage's corners, in order. The roads never depend on the crew's choices, so this can be shown before driving.
