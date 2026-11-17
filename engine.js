@@ -3,7 +3,7 @@
 // so a submitted replay is checked with exactly the same rules the player drove.
 // Change anything here that affects results -> bump RULES_VERSION.
 
-export const RULES_VERSION='0.7';
+export const RULES_VERSION='0.8';
 
 // ---------- Config ----------
 const DEF={
@@ -12,13 +12,14 @@ const DEF={
   intoMin:5,recovery:3,stageCourage:3,stageLuck:1,cleanLuck:1,comRisk:0,comStam:1,comCo:0,serviceCo:3,stagesPerLeg:4,longLuck:2,nightOn:1,
   noMod:16,luckGood:6,luckAvg:3,luckBad:3,goodV:-2,badV:2,
   dwClose:4,dwWorse:3,dwTerminal:2,dwDead:1,terminalTime:10,deadTime:4,
-  nightLuck:0,dmgLoose:4,dmgNoFlat:7,dmgMax:8,dmgShortRepair:2,fixStam:2,fixTime:2,lateTime:2
+  nightLuck:0,breathers:1,brStamMax:2,brCoMax:1,dmgLoose:4,dmgNoFlat:7,dmgMax:8,dmgShortRepair:2,fixStam:2,fixTime:2,lateTime:2
 };
 const CFG_META=[
   ['Crew tokens (start / max)'],['stamina','Stamina'],['courage','Courage'],['luck','Luck'],
   ['Pace base time'],['base_safe','Safe'],['base_committed','Committed'],['base_flat','Flat Out'],
   ['Stage flow'],['intoMin','INTO on D6 ≥'],['recovery','Stamina regained per stage end'],['stageCourage','Courage regained every stage end'],['stageLuck','Luck regained every stage end'],['cleanLuck','Extra Luck for a clean stage'],['comStam','Committed: extra Stamina per card'],['comCo','Committed: extra Courage per card'],['comRisk','Committed risk: Luck card on D6 ≤ (0 = off)'],['serviceCo','Courage at short service'],['stagesPerLeg','Stages per leg (legs = stages ÷ this, rounded up)'],['longLuck','Luck at long service (end of leg)'],['nightOn','Night stages (1 = on, 0 = off)'],['noMod','Blank cards in modifier deck (34 real)'],
   ['Luck deck'],['luckGood','Good cards'],['luckAvg','Average cards'],['luckBad','Bad cards'],['goodV','Good result (time)'],['badV','Bad result (time)'],
+  ['Breathers'],['breathers','Breathers on easy cards (1 = on, 0 = off)'],['brStamMax','Most Stamina from breathers per stage'],['brCoMax','Most Courage from breathers per stage'],
   ['Night'],['nightLuck','Extra Luck cost for Flat Out at night'],['Damage'],['dmgLoose','Damage that costs +1 time per card'],['dmgNoFlat','Damage that rules out Flat Out'],['dmgMax','Damage that retires the car'],['dmgShortRepair','Damage repaired at a short service'],['fixStam','Stamina per roadside fix (−1 Damage)'],['fixTime','Time per roadside fix'],['lateTime','Time per extra repair at a short service'],
   ['Death Wish deck'],['dwClose','Close Shave'],['dwWorse',"Could've Been Worse"],['dwTerminal','Heavy Off'],['dwDead','DEAD'],['terminalTime','Heavy Off time'],['deadTime','Time per event after DEAD']
 ];
@@ -154,7 +155,7 @@ function startStage(r){
     if(t0!==r.track)L.push('Track: '+TRACKC[t0]+' → '+TRACKC[r.track]);
   }
   r.len=r.left=rnd(6)+4+(r.rally?r.rally.cards:0);
-  const c=r.crew;c.stageTime=0;c.flat=false;c.terminal=false;c.gripHit=false;
+  const c=r.crew;c.stageTime=0;c.flat=false;c.terminal=false;c.gripHit=false;c.brSt=0;c.brCo=0;c.brChain=0;
   r.ice=r.rally&&r.rally.special==='ice'?rnd(r.len)-1:-1;
   if(r.rally&&r.rally.special==='thaw'){const sp=r.surf[r.stage-1],h=sp.indexOf(2);if(h>=0&&rnd(6)===6){sp[h]=1;L.push('Thaw: part of this stage has turned to gravel');}}
   return L;
@@ -212,9 +213,16 @@ export function mask(cards,focus){
     ice:!!cd.ice,iceKnown:!!cd.ice&&hideUpTo<3}));
 }
 // The cards as the crew believes them to be: unknown details are left out of the cost preview.
+// Breathers: easy road where the crew can catch its breath. A straight, or a grade 3 to Flat corner,
+// with no modifier except Widen, Long or Opens. Not when linked, in the dark, in heavy weather, on ice,
+// or when the co-driver isn't sure what the card is.
+const CALM=new Set(['Widen','Long','Opens']);
+export function isBreather(r,cd,linked){
+  return !!CFG.breathers&&!linked&&!cd.ice&&!cd.unsure&&(cd.gi<0||cd.gi>=5)&&cd.mods.every(m=>CALM.has(m.n))&&!r.night[r.stage]&&r.weather<4;
+}
 function believed(cards,focus){
   const v=mask(cards,focus);
-  return cards.map((cd,i)=>({...cd,gi:v[i].gradeKnown&&!v[i].faceDown?cd.gi:-1,mods:v[i].faceDown?[]:cd.mods.filter((m,j)=>v[i].mods[j].known),ice:v[i].iceKnown}));
+  return cards.map((cd,i)=>({...cd,unsure:v[i].faceDown||!v[i].gradeKnown||v[i].mods.some(m=>!m.known)||v[i].extraQ,gi:v[i].gradeKnown&&!v[i].faceDown?cd.gi:-1,mods:v[i].faceDown?[]:cd.mods.filter((m,j)=>v[i].mods[j].known),ice:v[i].iceKnown}));
 }
 function deathWish(c,L){
   c.dw++;c.focus=Math.max(0,(c.focus??FOCUS_MAX)-2);const k=fpick(DW);c.dwLog.push(k);
@@ -278,6 +286,12 @@ function applyEvent(r,cards,pace,dry){
       if(hit){L.push({t:'Car damaged: +'+hit+' Damage',k:'bad'});addDmg(c,hit,L);}
       if(dw&&!c.retired)t+=deathWish(c,L);
     }
+    // Breather taken Safe: +1 Stamina; two in a row also +1 Courage (limited per stage).
+    if(p==='safe'&&!c.dead&&!c.retired&&isBreather(r,card,cards.length>1)){
+      if((c.brSt||0)<CFG.brStamMax&&c.st<CFG.stamina){c.st+=1;c.brSt=(c.brSt||0)+1;if(!dry)L.push({t:'Breather: +1 Stamina',k:'good'});}
+      c.brChain=(c.brChain||0)+1;
+      if(c.brChain>=2&&(c.brCo||0)<CFG.brCoMax&&c.co<CFG.courage){c.co+=1;c.brCo=(c.brCo||0)+1;c.brChain=0;if(!dry)L.push({t:'Settled: +1 Courage',k:'good'});}
+    }else c.brChain=0;
     if(!dry)card.tl=t;
     T+=t;
   });
@@ -310,6 +324,11 @@ const STRATS={
   'Always Safe':()=>'safe',
   'Always Committed':()=>'committed',
   'Always Flat Out':()=>'flat',
+  'Balanced + breathers':(r,ev)=>{
+    const c=r.crew;
+    if(ev.length===1&&isBreather(r,ev[0],false)&&(c.st<=CFG.stamina-3||c.co<=CFG.courage-3))return 'safe';
+    return STRATS['Balanced'](r,ev);
+  },
   'Balanced':(r,ev)=>{
     const pv=applyEvent(r,ev,'committed',true);
     if(pv.risk)return 'safe';
@@ -350,7 +369,7 @@ function runRally(strat,tyreMode){
   }
   return r;
 }
-const SIMS=[['Always Safe','smart'],['Always Committed','smart'],['Always Flat Out','smart'],['Balanced','smart'],['Cautious Pro','smart'],['Balanced, random tyres','random','Balanced']];
+const SIMS=[['Always Safe','smart'],['Always Committed','smart'],['Always Flat Out','smart'],['Balanced','smart'],['Balanced + breathers','smart'],['Cautious Pro','smart'],['Balanced, random tyres','random','Balanced']];
 
 export function setConfig(cfg){CFG={...DEF,...(cfg||{})};buildDecks();}
 export function getConfig(){return CFG;}

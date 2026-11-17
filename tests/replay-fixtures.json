@@ -1,14 +1,14 @@
 {
- "version": "0.7",
+ "version": "0.8",
  "cases": [
   {
    "seed": "FIX-A",
    "event": {},
    "moves": "1ccccccccccccc0ccccccccccccc3cccccccccccc1cccccccc",
-   "time": 193,
+   "time": 189,
    "stages": [
     10,
-    38,
+    34,
     32,
     21,
     27,
@@ -39,7 +39,7 @@
    "event": {
     "rally": "germany"
    },
-   "moves": "1csffcsfcsffcs0fcsffrffcsf1csf202",
+   "moves": "1csffcsfcsffcs0fcsffrffcsf1csf",
    "time": 285,
    "stages": [
     1,
@@ -80,14 +80,14 @@
     "deck": "mountain"
    },
    "moves": "1csccsccccsccscsccsc3sccsccscscsccs0csccsrsccscsccs",
-   "time": 225,
+   "time": 222,
    "stages": [
     26,
     23,
     21,
     22,
     16,
-    23,
+    20,
     32,
     34,
     28
@@ -99,7 +99,7 @@
     "surface": "tarmac",
     "deck": "twisty"
    },
-   "moves": "1ffffffff313",
+   "moves": "1ffffffff",
    "time": 222,
    "stages": [
     13,
@@ -118,10 +118,10 @@
     "deck": "fast"
    },
    "moves": "1fccfccrcfccfcc1ccfccccfccfc3fccfccfcfccfcc3ccfccccfccfc1fccfccfccccfccf2cfccfcfccf",
-   "time": 396,
+   "time": 395,
    "stages": [
     7,
-    25,
+    24,
     20,
     39,
     34,

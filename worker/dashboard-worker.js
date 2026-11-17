@@ -7,7 +7,7 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // ../engine.js
-var RULES_VERSION = "0.7";
+var RULES_VERSION = "0.8";
 var DEF = {
   stamina: 10,
   courage: 8,
@@ -40,6 +40,9 @@ var DEF = {
   terminalTime: 10,
   deadTime: 4,
   nightLuck: 0,
+  breathers: 1,
+  brStamMax: 2,
+  brCoMax: 1,
   dmgLoose: 4,
   dmgNoFlat: 7,
   dmgMax: 8,
@@ -251,7 +254,7 @@ function newRally() {
     left: 0,
     len: 0,
     stageTimes: [],
-    crew: { tyre: 2, st: CFG.stamina, co: CFG.courage, lu: CFG.luck, time: 0, dw: 0, dwLog: [], dead: false, retired: false, dmg: 0, fixes: 0, terminal: false, flat: false, stageTime: 0, fatigue: 0, shaken: 0, flats: 0, luckOut: 0 }
+    crew: { tyre: 2, focus: FOCUS_MAX, strain: 0, st: CFG.stamina, co: CFG.courage, lu: CFG.luck, time: 0, dw: 0, dwLog: [], dead: false, retired: false, dmg: 0, fixes: 0, terminal: false, flat: false, stageTime: 0, fatigue: 0, shaken: 0, flats: 0, luckOut: 0 }
   };
 }
 __name(newRally, "newRally");
@@ -287,6 +290,9 @@ function startStage(r) {
   c.flat = false;
   c.terminal = false;
   c.gripHit = false;
+  c.brSt = 0;
+  c.brCo = 0;
+  c.brChain = 0;
   r.ice = r.rally && r.rally.special === "ice" ? rnd(r.len) - 1 : -1;
   if (r.rally && r.rally.special === "thaw") {
     const sp = r.surf[r.stage - 1], h = sp.indexOf(2);
@@ -332,8 +338,28 @@ function addDmg(c, n, L) {
 }
 __name(addDmg, "addDmg");
 var isOut = /* @__PURE__ */ __name((c) => c.dead || c.retired, "isOut");
+var FOCUS_MAX = 6;
+function coDriver(r, c, cards, pace) {
+  if (pace === "safe") {
+    c.focus = Math.min(FOCUS_MAX, c.focus + 1);
+    c.strain = 0;
+    return;
+  }
+  c.strain += (pace === "flat" ? 2 : 1) + (cards.length > 1 ? 2 : 0) + (r.night[r.stage] ? 1 : 0) + (r.weather >= 4 ? 1 : 0) + (r.len - r.left >= 10 ? 1 : 0);
+  while (c.strain >= 5) {
+    c.strain -= 5;
+    c.focus = Math.max(0, c.focus - 1);
+  }
+}
+__name(coDriver, "coDriver");
+var CALM = /* @__PURE__ */ new Set(["Widen", "Long", "Opens"]);
+function isBreather(r, cd, linked) {
+  return !!CFG.breathers && !linked && !cd.ice && !cd.unsure && (cd.gi < 0 || cd.gi >= 5) && cd.mods.every((m) => CALM.has(m.n)) && !r.night[r.stage] && r.weather < 4;
+}
+__name(isBreather, "isBreather");
 function deathWish(c, L) {
   c.dw++;
+  c.focus = Math.max(0, (c.focus ?? FOCUS_MAX) - 2);
   const k = fpick(DW);
   c.dwLog.push(k);
   if (k === "close") {
@@ -469,9 +495,25 @@ function applyEvent(r, cards, pace, dry) {
       }
       if (dw && !c.retired) t += deathWish(c, L);
     }
+    if (p === "safe" && !c.dead && !c.retired && isBreather(r, card, cards.length > 1)) {
+      if ((c.brSt || 0) < CFG.brStamMax && c.st < CFG.stamina) {
+        c.st += 1;
+        c.brSt = (c.brSt || 0) + 1;
+        if (!dry) L.push({ t: "Breather: +1 Stamina", k: "good" });
+      }
+      c.brChain = (c.brChain || 0) + 1;
+      if (c.brChain >= 2 && (c.brCo || 0) < CFG.brCoMax && c.co < CFG.courage) {
+        c.co += 1;
+        c.brCo = (c.brCo || 0) + 1;
+        c.brChain = 0;
+        if (!dry) L.push({ t: "Settled: +1 Courage", k: "good" });
+      }
+    } else c.brChain = 0;
     if (!dry) card.tl = t;
     T += t;
   });
+  if (!dry && !isOut(c)) coDriver(r, c, cards, pace);
+  if (!dry && isOut(c) && c.outStage == null) c.outStage = r.stage;
   if (!dry) {
     c.stageTime += T;
     r.left -= cards.length;
@@ -500,6 +542,8 @@ function endStage(r) {
       L.push(wxName(r, 5) + " upkeep: \u22121 Stamina, \u22121 Courage");
     }
     c.st = Math.min(CFG.stamina, c.st + CFG.recovery);
+    c.focus = Math.min(FOCUS_MAX, (c.focus ?? FOCUS_MAX) + 2);
+    c.strain = 0;
     if (CFG.stageCourage) c.co = Math.min(CFG.courage, c.co + CFG.stageCourage);
     const lg = CFG.stageLuck + (c.flat ? 0 : CFG.cleanLuck);
     if (lg && c.lu < CFG.luck) {
@@ -508,12 +552,14 @@ function endStage(r) {
     }
     const sv = r.svc[r.stage];
     if (sv === "long" && r.stage < r.stages) {
+      c.focus = FOCUS_MAX;
       c.st = CFG.stamina;
       c.co = CFG.courage;
       c.lu = Math.min(CFG.luck, c.lu + CFG.longLuck);
       c.dmg = 0;
       L.push("LONG SERVICE, end of leg " + r.legOf[r.stage] + ": car fully repaired, Stamina and Courage full, +" + CFG.longLuck + " Luck");
     } else if (sv === "short" && r.stage < r.stages) {
+      c.focus = FOCUS_MAX;
       c.st = CFG.stamina;
       c.co = Math.min(CFG.courage, c.co + CFG.serviceCo);
       const fx = Math.min(c.dmg, CFG.dmgShortRepair + (r.rally && r.rally.special === "safari" ? 1 : 0));
@@ -653,12 +699,20 @@ function finishStage(g) {
   L.forEach((t) => g.log.push({ t, k: /^(SERVICE|LONG|Clean)/.test(t) ? "good" : "" }));
   g.log.push({ t: "Stage " + g.r.stage + " time: " + g.r.stageTimes[g.r.stageTimes.length - 1] + " \xB7 Total: " + g.r.crew.time, k: "hd" });
   g.phase = g.r.stage >= g.r.stages ? "done" : g.r.svc[g.r.stage] ? "tyres" : "stageEnd";
+  if (isOut(g.r.crew) && g.phase !== "done") {
+    if (!g.outLogged) {
+      g.outLogged = true;
+      g.log.push({ t: "Out of the rally. The remaining stages count at maximum time.", k: "bad" });
+    }
+    beginStage(g);
+  }
 }
 __name(finishStage, "finishStage");
 function replay(seed, moves, event) {
   if (typeof moves !== "string" || !/^[0-3scfr]{1,2000}$/.test(moves)) return { ok: false, error: "Bad replay code" };
   const g = createGame(seed, null, event);
   for (const ch of moves) {
+    if (g.phase === "done" && isOut(g.r.crew) && /[0-3]/.test(ch)) continue;
     if (ch === "r") {
       if ((g.phase === "stageEnd" || g.phase === "tyres") && canFix(g.r)) {
         fixCar(g);

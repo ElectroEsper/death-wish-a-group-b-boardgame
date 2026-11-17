@@ -241,7 +241,7 @@ body.night .note:not(.d4){background-image:linear-gradient(to top,rgba(255,255,2
 .note.crooked{transform:rotate(-1.2deg)}
 .note.d3.crooked,.note.d4.crooked{transform:none}
 .note.skid{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90'%3E%3Cpath d='M0 86 Q70 76 160 30M14 90 Q84 80 160 46' fill='none' stroke='rgba(27,21,0,.22)' stroke-width='6' stroke-dasharray='5 3'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right bottom}
-.note.skid.g2{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='110'%3E%3Cpath d='M0 104 Q80 92 200 26M14 110 Q96 98 200 46M40 110 Q120 96 200 66' fill='none' stroke='rgba(27,21,0,.32)' stroke-width='7' stroke-dasharray='6 3'/%3E%3C/svg%3E")}
+.note.skid.grip2{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='110'%3E%3Cpath d='M0 104 Q80 92 200 26M14 110 Q96 98 200 46M40 110 Q120 96 200 66' fill='none' stroke='rgba(27,21,0,.32)' stroke-width='7' stroke-dasharray='6 3'/%3E%3C/svg%3E")}
 @media(prefers-reduced-motion:no-preference){.note.slide{animation:slideIn .5s ease-out}@keyframes slideIn{0%{transform:translateX(-14px) rotate(-1.5deg)}60%{transform:translateX(6px) rotate(.8deg)}100%{transform:none}}}
 .note.rough:not(.skid){background-image:radial-gradient(rgba(27,21,0,.16) 1px,transparent 1.4px);background-size:7px 7px}
 .note.frost{box-shadow:inset 0 0 0 4px rgba(228,236,242,.9),inset 0 0 22px rgba(228,236,242,.7)}
@@ -352,11 +352,11 @@ tr.me td{color:var(--lamp)}
 </main>
 <footer id="ver" style="max-width:1080px;margin:0 auto;padding:0 20px 28px;color:var(--dust);font-size:13px"></footer>
 <script type="module">
-import * as E from './engine.js?v=7821b27o';
-import {API_URL} from './site-config.js?v=7821b27o';
+import * as E from './engine.js?v=cbfd659b';
+import {API_URL} from './site-config.js?v=cbfd659b';
 const $=id=>document.getElementById(id);
 // Updated with each release: date and short commit it was built from.
-const BUILD='2026-11-17.973b1ca';
+const BUILD='2026-11-17.cbfd659';
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const API=API_URL?API_URL.replace(/\/$/,''):'';
@@ -652,7 +652,7 @@ function home(){
   h+='<div><div class="panel"><h3>Standings, '+WEEK+'</h3><div id="miniLb" class="muted">'+(API?'Loading…':'Leaderboard not connected.')+'</div></div>';
   h+='<div class="panel"><h3>Free play</h3><p class="muted">Any seed, with your values from Numbers. Not ranked. The same seed always gives the same rally.</p><div class="row"><input id="playSeed" class="inp" type="text" placeholder="Seed, or leave blank" style="flex:1;min-width:120px" aria-label="Seed"><button class="btn" onclick="startFree()">Start free play</button></div></div>';
   h+=soloPanel();
-  h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead.</p><p class="muted" style="margin:8px 0 0;font-size:14px">On a keyboard: <b style="color:var(--chalk)">1 2 3</b> (or S C F) to pick a pace, <b style="color:var(--chalk)">1–4</b> for tyres, <b style="color:var(--chalk)">Enter</b> for the next stage, <b style="color:var(--chalk)">R</b> to repair.</p></div>'+histPanel()+'</div></div>';
+  h+='<div class="panel"><h3>How to drive</h3><p style="margin:0 0 8px"><button class="btn" onclick="openTut()">Show the picture tour</button></p><p class="muted" style="margin:0">Each card is a pace note. Choose <b style="color:var(--chalk)">Safe</b> to give up time, <b style="color:var(--chalk)">Committed</b> to spend Courage and Stamina, or <b style="color:var(--chalk)">Flat Out</b> to gamble on a Luck card. Run out of Luck and you draw a Death Wish. Pick tyres at each service for the surfaces ahead. Easy stretches marked <b style="color:var(--chalk)">Breather</b> give back Stamina if you take them Safe.</p><p class="muted" style="margin:8px 0 0;font-size:14px">On a keyboard: <b style="color:var(--chalk)">1 2 3</b> (or S C F) to pick a pace, <b style="color:var(--chalk)">1–4</b> for tyres, <b style="color:var(--chalk)">Enter</b> for the next stage, <b style="color:var(--chalk)">R</b> to repair.</p></div>'+histPanel()+'</div></div>';
   return h;
 }
 // ---------- Personal history (kept in this browser) ----------
@@ -735,7 +735,7 @@ function render(){
     const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],ice=G.ev.some(cd=>cd.ice),gr=ice&&c.tyre!==3?2:E.grip(c.tyre,su,E.isWet(r.weather),r.winter);
     const iceSeen=V.some(v=>v.iceKnown),ink=tier===3&&doubt<4?'#fff':doubt===4?'#eef1f3':'#1b1500';
     let pips='';for(let i=0;i<4;i++)pips+='<i'+(i<=tier?' class="on"':'')+'></i>';
-    const cls='a-note note t'+tier+' d'+doubt+(fresh?' fresh':'')+(gr&&doubt<4?' skid g'+gr+(fresh&&gr===2?' slide':''):'')+(r.track>=2&&doubt<4?' rough':'')+(c.dmg>=CFG.dmgLoose?' crooked':'')+(iceSeen&&doubt<4?' frost':'');
+    const cls='a-note note t'+tier+' d'+doubt+(fresh?' fresh':'')+(gr&&doubt<4?' skid grip'+gr+(fresh&&gr===2?' slide':''):'')+(r.track>=2&&doubt<4?' rough':'')+(c.dmg>=CFG.dmgLoose?' crooked':'')+(iceSeen&&doubt<4?' frost':'');
     const badge=doubt>=2?'<span class="cobadge"><i aria-hidden="true">!</i>'+(doubt===4?'Co-driver lost':doubt===3?'Co-driver nearly lost':'Co-driver unsure')+'</span>':'';
     h+='<div class="'+cls+'">'+(G.fx?'<div class="fxmsg '+G.fx+'">'+({dw:'Death Wish: '+(G.fxText||'').trim(),bad:'Bad luck on that one.',good:'Good luck on that one.',dmg:'The car took damage.'})[G.fx]+'</div>':'')+'<div class="diff"><span class="count">Stage '+r.stage+', card '+Math.min(r.len,r.len-r.left+1)+' of '+r.len+'</span><span class="row" style="gap:8px;font:700 17px var(--cond)">'+(badge||(TIER[tier]+'<span class="pips">'+pips+'</span>'))+'</span></div>'+progress(r,G.ev.length);
     if(doubt===4){h+='<div class="back"><b>?</b><span>No call. Your co-driver has lost the place in the notes.</span></div>';}
@@ -751,6 +751,7 @@ function render(){
     }
     h+='<div class="cond"><p>'+E.SURF[su]+(ice&&iceSeen?', sheet ice':E.isWet(r.weather)?(r.winter&&su!==2?', under snow':', wet'):', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
     if(doubt>=1)h+='<p><span class="warn">'+(doubt>=3?'Your co-driver is losing track. Anything marked ? is still out there, and the costs below leave it out. Driving Safe lets them catch up.':'Your co-driver missed some details, marked ?. The costs below leave them out.')+'</span></p>';
+    if(G.ev.length===1&&doubt===0&&E.isBreather(r,G.ev[0],false)){const left=CFG.brStamMax-(c.brSt||0);h+='<p><b>Breather.</b> '+(left>0&&c.st<CFG.stamina?'Taking it Safe wins back 1 Stamina on top of the corner\'s own cost ('+left+' left this stage)':'No more Stamina to win back here')+((c.brChain||0)>=1&&(c.brCo||0)<CFG.brCoMax&&c.co<CFG.courage?', and +1 Courage for a second easy one in a row':'')+'.</p>';}
     if(c.dmg>=CFG.dmgLoose)h+='<p><span class="warn">Damaged car ('+c.dmg+'): +1 time per card'+(c.dmg>=CFG.dmgNoFlat?', no Flat Out':'')+'.</span></p>';
     if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
     if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';
