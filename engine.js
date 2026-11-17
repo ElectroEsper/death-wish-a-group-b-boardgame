@@ -3,7 +3,7 @@
 // so a submitted replay is checked with exactly the same rules the player drove.
 // Change anything here that affects results -> bump RULES_VERSION.
 
-export const RULES_VERSION='0.6';
+export const RULES_VERSION='0.7';
 
 // ---------- Config ----------
 const DEF={
@@ -67,7 +67,12 @@ const TYRES=['Slick','Wet','Gravel','Snow'];
 const PROFILES={single:'Single surface',between:'Mixed between stages',within:'Mixed within stages',snowgravel:'Snow and gravel, mixed within stages',montecarlo:'Tarmac with snow, mixed within stages',mostlygravel:'Mostly gravel, some tarmac stages'};
 // GRIP[tyre][surface][wet] : 0 good, 1 poor, 2 none
 const GRIP=[[[0,2],[2,2],[2,2]],[[1,0],[1,1],[2,2]],[[1,1],[0,0],[1,1]],[[2,1],[1,1],[0,0]]];
-const grip=(ty,su,wet)=>GRIP[ty][su][wet?1:0];
+// Winter rallies (any snow on the itinerary): rain becomes snowfall, which covers tarmac and gravel too.
+// Under falling snow every surface grips like snow: Snow tyres good, Wet and Gravel poor, Slicks none.
+const SNOWFALL=[2,1,1,0];
+const grip=(ty,su,wet,winter)=>winter&&wet&&su!==2?SNOWFALL[ty]:GRIP[ty][su][wet?1:0];
+export const WINTER_WEATHER=['Clear','Partly Cloudy','Cloudy','Light Snow','Heavy Snow','Blizzard'];
+const wxName=(r,w)=>(r&&r.winter?WINTER_WEATHER:WEATHER)[w];
 const isWet=w=>w>=3;
 function surfLabel(sp){return sp[0]===sp[1]?SURF[sp[0]]:SURF[sp[0]]+'→'+SURF[sp[1]];}
 // Surface themes an event can set: '' (rolled), 'tarmac', 'gravel', 'snow', 'between', 'within'.
@@ -142,7 +147,7 @@ function startStage(r){
     const w0=r.weather;
     if(r.rally){const x=RT(),b=r.rally.wx;if(x<b[0])r.weather=Math.max(0,w0-1);else if(x>=b[0]+b[1])r.weather=Math.min(5,w0+1);}
     else{const d=rnd(6);if(d<=2)r.weather=Math.max(0,r.weather-1);else if(d>=5)r.weather=Math.min(5,r.weather+1);}
-    if(w0!==r.weather)L.push('Weather: '+WEATHER[w0]+' → '+WEATHER[r.weather]);
+    if(w0!==r.weather)L.push('Weather: '+wxName(r,w0)+' → '+wxName(r,r.weather));
     const t0=r.track,d2=rnd(6),w=r.weather;let ch=0;
     if(w===0)ch=-1;else if(w===1&&d2<=4)ch=-1;else if(w===2&&d2<=2)ch=-1;else if(w===3&&d2>=5)ch=1;else if(w===4&&d2>=3)ch=1;else if(w===5)ch=1;
     r.track=clamp(r.track+ch,0,3);
@@ -205,14 +210,14 @@ function applyEvent(r,cards,pace,dry){
     else if(p==='flat'&&c.dmg>=CFG.dmgNoFlat){forced='Damaged car';p='committed';}
     if(!dry){if(fat)c.fatigue++;if(shaken&&!c.terminal)c.shaken++;if(p==='flat')c.flats++;}
     let t=CFG['base_'+p];if(fat)t+=1;if(c.dmg>=CFG.dmgLoose)t+=1;
-    const sp=r.surf[r.stage-1]||[1,1],su=(r.left-i)>r.len/2?sp[0]:sp[1],gr=card.ice&&c.tyre!==3?2:grip(c.tyre,su,isWet(r.weather));
+    const sp=r.surf[r.stage-1]||[1,1],su=(r.left-i)>r.len/2?sp[0]:sp[1],gr=card.ice&&c.tyre!==3?2:grip(c.tyre,su,isWet(r.weather),r.winter);
     t+=gr;
     let gs=0,up=0;card.mods.forEach(m=>{gs+=m.g||0;up+=m.u||0;});
     let stam=card.gi<0?0:STAM[clamp(card.gi+gs,0,9)];stam=Math.max(0,stam+up);
     c.st=Math.max(0,c.st-stam);
     let co=0,lu=0,s2=0;
     card.mods.forEach(m=>{
-      const dk=m.dark&&r.night[r.stage];
+      const dk=m.dark&&(r.night[r.stage]||(r.winter&&r.weather===5));
       const sp2=r.rally?r.rally.special:'',dk2=dk||(sp2==='forest'&&r.night[r.stage]&&(m.n==='Narrow'||m.n==='Caution'));
       if(p==='safe'){t+=m.t+(dk2?1:0);if(r.track===1&&m.rough)t+=1;}
       else{co+=(m.c||0)+(dk2?1:0)+(sp2==='crowds'&&p==='flat'&&m.n==='Unseen'?1:0);lu+=m.l||0;s2+=m.s||0;if(sp2==='bigair'&&p==='flat'&&m.n==='Jump')t-=1;}
@@ -259,8 +264,8 @@ function endStage(r){
   if(!c.dead&&!c.retired){
     if(r.rally&&r.rally.special==='heat'){c.st=Math.max(0,c.st-1);L.push('Heat: −1 Stamina');}
     if(r.night[r.stage]){c.st=Math.max(0,c.st-1);L.push((r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage upkeep: −1 Stamina');}
-    if(r.weather===4){c.st=Math.max(0,c.st-1);L.push('Heavy Rain upkeep: −1 Stamina');}
-    if(r.weather===5){c.st=Math.max(0,c.st-1);c.co=Math.max(0,c.co-1);L.push('Storm upkeep: −1 Stamina, −1 Courage');}
+    if(r.weather===4){c.st=Math.max(0,c.st-1);L.push(wxName(r,4)+' upkeep: −1 Stamina');}
+    if(r.weather===5){c.st=Math.max(0,c.st-1);c.co=Math.max(0,c.co-1);L.push(wxName(r,5)+' upkeep: −1 Stamina, −1 Courage');}
     c.st=Math.min(CFG.stamina,c.st+CFG.recovery);
     if(CFG.stageCourage)c.co=Math.min(CFG.courage,c.co+CFG.stageCourage);
     const lg=CFG.stageLuck+(c.flat?0:CFG.cleanLuck);
@@ -296,7 +301,7 @@ const STRATS={
 };
 // stages from the next one up to and including the next service
 function upcoming(r){const out=[];for(let k=r.stage+1;k<=r.stages;k++){out.push(k);if(r.svc[k])break;}return out;}
-function tyreForecast(r,ty){let g=[0,0,0];upcoming(r).forEach(k=>{r.surf[k-1].forEach(su=>g[grip(ty,su,isWet(r.weather))]++);});return g;}
+function tyreForecast(r,ty){let g=[0,0,0];upcoming(r).forEach(k=>{r.surf[k-1].forEach(su=>g[grip(ty,su,isWet(r.weather),r.winter)]++);});return g;}
 function pickTyre(r,mode){
   if(mode==='random')return Math.floor(RF()*4);
   let best=0,bs=1e9;for(let ty=0;ty<4;ty++){const g=tyreForecast(r,ty),sc=g[1]+g[2]*2.5;if(sc<bs){bs=sc;best=ty;}}return best;
@@ -347,10 +352,10 @@ export function createGame(seed,cfg,event,opts){
   RALLY=(event&&RALLIES[event.rally])||null;
   THEME=RALLY?RALLY.surface:(event&&THEMES[event.surface]!==undefined)?event.surface||'':'';
   DECK=RALLY?RALLY.deck:(event&&DECKS[event.deck])?event.deck:'';
-  g.r=newRally();THEME='';
+  g.r=newRally();THEME='';g.r.winter=g.r.surf.some(sp=>sp.includes(2));
   if(DECK||(RALLY&&RALLY.extra))g.r.deck=deckFor(DECK,RALLY&&RALLY.extra);
   g.r.roughDeck=deckFor('rough');g.r.deckName=DECKS[DECK].name;DECK='';RALLY=null;
-  g.log.push({t:'Seed '+seed+' · '+g.r.stages+' stages in '+g.r.legs+' legs · '+PROFILES[g.r.profile]+' · '+WEATHER[g.r.weather]+' · '+TRACKC[g.r.track],k:'hd'});
+  g.log.push({t:'Seed '+seed+' · '+g.r.stages+' stages in '+g.r.legs+' legs · '+PROFILES[g.r.profile]+' · '+wxName(g.r,g.r.weather)+' · '+TRACKC[g.r.track],k:'hd'});
   return g;
 }
 export function chooseTyre(g,ty){
@@ -419,7 +424,16 @@ export const PERSONAS={
   veteran:{name:'The Veteran',about:'Holds back, then attacks the final leg.'},
   hothead:{name:'The Hothead',about:'Pushes harder the further behind, and after a bad stage.'},
   rookie:{name:'The Rookie',about:'Inconsistent pace and the odd wrong tyre.'},
-  specialist:{name:'The Specialist',about:'Excellent on one surface, ordinary elsewhere.'}
+  specialist:{name:'The Specialist',about:'Excellent on one surface, ordinary elsewhere.'},
+  nightowl:{name:'The Night Owl',about:'Comes alive in the dark, careful in daylight.'},
+  rainmaster:{name:'The Rain Master',about:'Attacks in rain and snow, tidy in the dry.'},
+  tactician:{name:'The Tactician',about:'Defends a lead, attacks the car just ahead.'},
+  privateer:{name:'The Privateer',about:'Can\'t afford damage. Gentle over rough ground.'},
+  sprinter:{name:'The Sprinter',about:'Flies in the first leg, fades after.'},
+  showman:{name:'The Showman',about:'Flat Out over every jump and crest for the crowd.'},
+  grinder:{name:'The Grinder',about:'Never lifts: Committed even when exhausted.'},
+  iceman:{name:'The Iceman',about:'Unshakeable. Flat Out on fast corners only.'},
+  mechanic:{name:'The Mechanic',about:'Fixes everything, pushes hard in a fresh car.'}
 };
 export function botTyre(g,bot){
   const r=g.r;let best=0,bs=1e9;
@@ -445,6 +459,33 @@ export function botPace(g,bot,ctx){
       if((ctx.gap>12||ctx.tilt)&&canFlat&&c.lu>=1)return 'flat';
       return safeC?'committed':'safe';
     case 'rookie':{const x=bot.rng();if(x<.2&&canFlat)return 'flat';if(x<.75&&safeC)return 'committed';return 'safe';}
+    case 'nightowl':
+      if(r.night[r.stage]){if(canFlat&&c.lu>=2)return 'flat';return safeC?'committed':'safe';}
+      return safeC&&c.co+pc.dc>=3?'committed':'safe';
+    case 'rainmaster':
+      if(isWet(r.weather)){if(canFlat&&c.lu>=2&&c.co+pf.dc>=1)return 'flat';return safeC?'committed':'safe';}
+      return safeC&&c.co+pc.dc>=3?'committed':'safe';
+    case 'tactician':
+      if(ctx.pos===1&&ctx.behind>10)return safeC&&c.co+pc.dc>=4?'committed':'safe';
+      if(ctx.ahead<=8&&canFlat&&c.lu>=2)return 'flat';
+      return safeC&&c.co+pc.dc>=2?'committed':'safe';
+    case 'privateer':
+      if(rough)return 'safe';
+      if(canFlat&&c.lu>=4&&c.dmg===0)return 'flat';
+      return safeC?'committed':'safe';
+    case 'sprinter':
+      if(r.legOf[r.stage]===1){if(canFlat&&c.lu>=2)return 'flat';return safeC?'committed':'safe';}
+      return safeC&&c.co+pc.dc>=4?'committed':'safe';
+    case 'showman':
+      if(g.ev.some(cd=>cd.mods.some(m=>m.n==='Jump'||m.n==='Over Crest'))&&canFlat&&c.lu>=1)return 'flat';
+      return safeC?'committed':'safe';
+    case 'grinder':return pc.risk?'safe':'committed';
+    case 'iceman':
+      if(g.ev.every(cd=>cd.gi>=7||cd.gi<0)&&canFlat&&c.lu>=2)return 'flat';
+      return safeC&&c.co+pc.dc>=2?'committed':'safe';
+    case 'mechanic':
+      if(c.dmg===0&&canFlat&&c.lu>=3)return 'flat';
+      return safeC?'committed':'safe';
     case 'specialist':{
       const sp=r.surf[r.stage-1],home=sp[0]===bot.surface||sp[1]===bot.surface;
       if(home&&canFlat&&c.lu+pf.dl>=3&&c.co+pf.dc>=2)return 'flat';
@@ -458,7 +499,8 @@ export function advanceBot(bot,stage,ctxFn){
   while(g.phase!=='done'&&n++<3000){
     if(g.phase==='tyres'){if(g.r.stage>=stage)break;chooseTyre(g,botTyre(g,bot));bot.ctx=ctxFn(bot);}
     else if(g.phase==='stageEnd'){if(g.r.stage>=stage)break;
-      while(canFix(g.r)&&g.r.crew.dmg>=CFG.dmgLoose&&(bot.persona==='professor'||bot.persona==='banker'||g.r.crew.dmg>=CFG.dmgNoFlat-1)&&g.r.crew.st>=fixCost(g.r).st+3)fixCar(g);
+      if(bot.persona==='mechanic')while(canFix(g.r)&&g.r.crew.st>=fixCost(g.r).st+1)fixCar(g);
+      while(canFix(g.r)&&g.r.crew.dmg>=CFG.dmgLoose&&(bot.persona==='professor'||bot.persona==='banker'||bot.persona==='privateer'||g.r.crew.dmg>=CFG.dmgNoFlat-1)&&g.r.crew.st>=fixCost(g.r).st+3)fixCar(g);
       continueStage(g);bot.ctx=ctxFn(bot);}
     else if(g.phase==='choose')choosePace(g,botPace(g,bot,bot.ctx||{gap:0}));
   }
@@ -497,4 +539,4 @@ export function simulate(seedBase,N,cfg){
   return rows;
 }
 
-export {DEF,CFG_META,GRADES,WEATHER,TRACKC,SURF,TYRES,PROFILES,grip,isWet,surfLabel,cardName,upcoming,tyreForecast,randomSeed};
+export {DEF,CFG_META,GRADES,WEATHER,TRACKC,SURF,TYRES,PROFILES,grip,isWet,wxName,surfLabel,cardName,upcoming,tyreForecast,randomSeed};

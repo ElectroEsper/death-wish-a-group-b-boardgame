@@ -7,7 +7,7 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // ../engine.js
-var RULES_VERSION = "0.6";
+var RULES_VERSION = "0.7";
 var DEF = {
   stamina: 10,
   courage: 8,
@@ -128,7 +128,10 @@ var SURF = ["Tarmac", "Gravel", "Snow"];
 var TYRES = ["Slick", "Wet", "Gravel", "Snow"];
 var PROFILES = { single: "Single surface", between: "Mixed between stages", within: "Mixed within stages", snowgravel: "Snow and gravel, mixed within stages", montecarlo: "Tarmac with snow, mixed within stages", mostlygravel: "Mostly gravel, some tarmac stages" };
 var GRIP = [[[0, 2], [2, 2], [2, 2]], [[1, 0], [1, 1], [2, 2]], [[1, 1], [0, 0], [1, 1]], [[2, 1], [1, 1], [0, 0]]];
-var grip = /* @__PURE__ */ __name((ty, su, wet) => GRIP[ty][su][wet ? 1 : 0], "grip");
+var SNOWFALL = [2, 1, 1, 0];
+var grip = /* @__PURE__ */ __name((ty, su, wet, winter) => winter && wet && su !== 2 ? SNOWFALL[ty] : GRIP[ty][su][wet ? 1 : 0], "grip");
+var WINTER_WEATHER = ["Clear", "Partly Cloudy", "Cloudy", "Light Snow", "Heavy Snow", "Blizzard"];
+var wxName = /* @__PURE__ */ __name((r, w) => (r && r.winter ? WINTER_WEATHER : WEATHER)[w], "wxName");
 var isWet = /* @__PURE__ */ __name((w) => w >= 3, "isWet");
 var THEMES = { "": "Rolled at random", tarmac: "All tarmac", gravel: "All gravel", snow: "All snow", between: "Mixed between stages", within: "Mixed within stages" };
 var THEME = "";
@@ -266,7 +269,7 @@ function startStage(r) {
       if (d <= 2) r.weather = Math.max(0, r.weather - 1);
       else if (d >= 5) r.weather = Math.min(5, r.weather + 1);
     }
-    if (w0 !== r.weather) L.push("Weather: " + WEATHER[w0] + " \u2192 " + WEATHER[r.weather]);
+    if (w0 !== r.weather) L.push("Weather: " + wxName(r, w0) + " \u2192 " + wxName(r, r.weather));
     const t0 = r.track, d2 = rnd(6), w = r.weather;
     let ch = 0;
     if (w === 0) ch = -1;
@@ -384,7 +387,7 @@ function applyEvent(r, cards, pace, dry) {
     let t = CFG["base_" + p];
     if (fat) t += 1;
     if (c.dmg >= CFG.dmgLoose) t += 1;
-    const sp = r.surf[r.stage - 1] || [1, 1], su = r.left - i > r.len / 2 ? sp[0] : sp[1], gr = card.ice && c.tyre !== 3 ? 2 : grip(c.tyre, su, isWet(r.weather));
+    const sp = r.surf[r.stage - 1] || [1, 1], su = r.left - i > r.len / 2 ? sp[0] : sp[1], gr = card.ice && c.tyre !== 3 ? 2 : grip(c.tyre, su, isWet(r.weather), r.winter);
     t += gr;
     let gs = 0, up = 0;
     card.mods.forEach((m) => {
@@ -396,7 +399,7 @@ function applyEvent(r, cards, pace, dry) {
     c.st = Math.max(0, c.st - stam);
     let co = 0, lu = 0, s2 = 0;
     card.mods.forEach((m) => {
-      const dk = m.dark && r.night[r.stage];
+      const dk = m.dark && (r.night[r.stage] || r.winter && r.weather === 5);
       const sp2 = r.rally ? r.rally.special : "", dk2 = dk || sp2 === "forest" && r.night[r.stage] && (m.n === "Narrow" || m.n === "Caution");
       if (p === "safe") {
         t += m.t + (dk2 ? 1 : 0);
@@ -466,6 +469,7 @@ function applyEvent(r, cards, pace, dry) {
       }
       if (dw && !c.retired) t += deathWish(c, L);
     }
+    if (!dry) card.tl = t;
     T += t;
   });
   if (!dry) {
@@ -488,12 +492,12 @@ function endStage(r) {
     }
     if (r.weather === 4) {
       c.st = Math.max(0, c.st - 1);
-      L.push("Heavy Rain upkeep: \u22121 Stamina");
+      L.push(wxName(r, 4) + " upkeep: \u22121 Stamina");
     }
     if (r.weather === 5) {
       c.st = Math.max(0, c.st - 1);
       c.co = Math.max(0, c.co - 1);
-      L.push("Storm upkeep: \u22121 Stamina, \u22121 Courage");
+      L.push(wxName(r, 5) + " upkeep: \u22121 Stamina, \u22121 Courage");
     }
     c.st = Math.min(CFG.stamina, c.st + CFG.recovery);
     if (CFG.stageCourage) c.co = Math.min(CFG.courage, c.co + CFG.stageCourage);
@@ -566,10 +570,10 @@ function use(g) {
   }
 }
 __name(use, "use");
-function createGame(seed, cfg, event) {
-  const g = { seed, event: event || null, cfg: { ...DEF, ...cfg || {} }, moves: "", log: [], phase: "tyres", ev: null };
+function createGame(seed, cfg, event, opts) {
+  const g = { seed, event: event || null, cfg: { ...DEF, ...cfg || {} }, moves: "", log: [], phase: "tyres", ev: null, cards: [] };
   g.rt = mulberry32(hashStr(seed + "|track"));
-  g.rf = mulberry32(hashStr(seed + "|fate"));
+  g.rf = mulberry32(hashStr(seed + "|fate" + (opts && opts.fate ? "|" + opts.fate : "")));
   CFG = g.cfg;
   buildDecks();
   g.deckCfg = g.cfg;
@@ -580,12 +584,13 @@ function createGame(seed, cfg, event) {
   DECK = RALLY ? RALLY.deck : event && DECKS[event.deck] ? event.deck : "";
   g.r = newRally();
   THEME = "";
+  g.r.winter = g.r.surf.some((sp) => sp.includes(2));
   if (DECK || RALLY && RALLY.extra) g.r.deck = deckFor(DECK, RALLY && RALLY.extra);
   g.r.roughDeck = deckFor("rough");
   g.r.deckName = DECKS[DECK].name;
   DECK = "";
   RALLY = null;
-  g.log.push({ t: "Seed " + seed + " \xB7 " + g.r.stages + " stages in " + g.r.legs + " legs \xB7 " + PROFILES[g.r.profile] + " \xB7 " + WEATHER[g.r.weather] + " \xB7 " + TRACKC[g.r.track], k: "hd" });
+  g.log.push({ t: "Seed " + seed + " \xB7 " + g.r.stages + " stages in " + g.r.legs + " legs \xB7 " + PROFILES[g.r.profile] + " \xB7 " + wxName(g.r, g.r.weather) + " \xB7 " + TRACKC[g.r.track], k: "hd" });
   return g;
 }
 __name(createGame, "createGame");
@@ -615,8 +620,9 @@ function choosePace(g, p) {
   use(g);
   if (g.phase !== "choose") throw new Error("No card to drive");
   g.moves += p[0];
-  const res = applyEvent(g.r, g.ev, p, false);
+  const st = g.r.stage, res = applyEvent(g.r, g.ev, p, false);
   res.L.forEach((x) => g.log.push(x));
+  (g.cards[st - 1] || (g.cards[st - 1] = [])).push(...g.ev.map((cd) => ({ gi: cd.gi, side: cd.side, t: cd.tl, pace: p })));
   g.ev = null;
   nextEvent(g);
 }

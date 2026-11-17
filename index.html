@@ -303,8 +303,8 @@ tr.me td{color:var(--lamp)}
   </section>
 </main>
 <script type="module">
-import * as E from './engine.js?v=eff3cf4s';
-import {API_URL} from './site-config.js?v=eff3cf4s';
+import * as E from './engine.js?v=801e452w';
+import {API_URL} from './site-config.js?v=801e452w';
 const $=id=>document.getElementById(id);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -377,17 +377,20 @@ function gauge(label,v,max){
 }
 
 // Weather icons, drawn simply so they read at small sizes.
-function wxIcon(w){
+function wxIcon(w,winter){
   const sun='<circle cx="11" cy="9" r="5" fill="#ffc20e"/>',cloud=(x,c)=>'<path d="M'+(6+x)+' 18h14a4 4 0 0 0 0-8 6 6 0 0 0-11-1 4.5 4.5 0 0 0-3 9z" fill="'+c+'"/>';
   const drops=n=>{let d='';for(let i=0;i<n;i++)d+='<path d="M'+(9+i*5)+' 19l-1.5 3" stroke="#7fb2ff" stroke-width="1.8" stroke-linecap="round"/>';return d;};
   const g=[sun+'<g stroke="#ffc20e" stroke-width="1.6" stroke-linecap="round"><path d="M11 1v2M11 15v2M3 9h2M17 9h2M5 3l1.4 1.4M15.6 13.6L17 15M5 15l1.4-1.4M15.6 4.4L17 3"/></g>',
     sun+cloud(2,'#c9d1d9'),cloud(0,'#9aa6b2')+cloud(3,'#c9d1d9'),cloud(1,'#8a96a3')+drops(2),cloud(1,'#6d7985')+drops(4),cloud(1,'#4d5864')+'<path d="M15 14l-3 5h3l-2 4" stroke="#ffc20e" stroke-width="1.8" fill="none" stroke-linejoin="round"/>'][w];
+  // Winter: snowflakes instead of raindrops, and a blizzard with driving snow.
+  if(winter&&w>=3){const fl=n=>{let d='';for(let i=0;i<n;i++){const x=8+i*5,y=20+(i%2)*2;d+='<g stroke="#e4ecf2" stroke-width="1.3" stroke-linecap="round"><path d="M'+(x-2)+' '+y+'h4M'+x+' '+(y-2)+'v4"/></g>';}return d;};
+    return '<svg viewBox="0 0 30 24" aria-hidden="true">'+[cloud(1,'#8a96a3')+fl(2),cloud(1,'#6d7985')+fl(4),cloud(1,'#4d5864')+'<g stroke="#e4ecf2" stroke-width="1.4" stroke-linecap="round"><path d="M4 16l6-2M12 21l6-2M20 17l6-2M6 22l5-2"/></g>'][w-3]+'</svg>';}
   return '<svg viewBox="0 0 30 24" aria-hidden="true">'+g+'</svg>';
 }
 function weatherScale(r,showOdds){
   let h='<div class="wx"><h4>Weather'+(showOdds?', chance for the next stage':'')+'</h4><div class="scale w6">';
   const fc=showOdds?E.forecast(r):{weather:{},track:{}},odds=fc.weather;
-  E.WEATHER.forEach((n,i)=>{h+='<div class="'+(i===r.weather?'now':'')+'">'+wxIcon(i)+n+'<em>'+(odds[i]?Math.round(odds[i]*100)+'%':'')+'</em></div>';});
+  (r.winter?E.WINTER_WEATHER:E.WEATHER).forEach((n,i)=>{h+='<div class="'+(i===r.weather?'now':'')+'">'+wxIcon(i,r.winter)+n+'<em>'+(odds[i]?Math.round(odds[i]*100)+'%':'')+'</em></div>';});
   h+='</div></div>';
   // Track condition drifts with weather: better in dry, worse in wet.
   const tr=r.track,to=fc.track;
@@ -439,7 +442,7 @@ function tutSlides(){
    {h:'Plan your tyres',p:'Stages run on tarmac, gravel or snow, grouped into legs. You only change tyres at a service, so pick for the stages ahead. Wrong tyres cost time on every card.',
     pic:strip(demo,null)+'<div class="gripmini"><span></span><span>Tarmac dry</span><span>Tarmac wet</span><span>Gravel</span><span>Snow</span><span>Slick</span><span class="g0">Good</span><span class="g2">None</span><span class="g2">None</span><span class="g2">None</span><span>Gravel</span><span class="g1">Poor</span><span class="g1">Poor</span><span class="g0">Good</span><span class="g1">Poor</span></div>'},
    {h:'Read the sky',p:'Weather can shift one step each stage, and rain wears the track down. Dark stages at dawn or night make jumps, crests and blind corners costlier. Now go drive.',
-    pic:weatherScale({weather:3,track:1},true)}
+    pic:weatherScale({weather:3,track:1},true)+'<p class="muted" style="margin:8px 0 0;font-size:14px">On rallies with snow, rain becomes snowfall: every surface then grips like snow, so Snow tyres win and blizzards hide jumps and crests.</p>'}
   ];
 }
 let tutI=0;
@@ -491,25 +494,34 @@ function allMaps(g){
 // ---------- Solo mode: race bots on the same roads, results kept in this browser ----------
 const BOTS={
   professor:['Lars Ekholm','Anna Lindqvist'],banker:['Marco Venturi'],gambler:['Jacques Morel'],veteran:['Gerd Hallmann'],
-  hothead:['Paddy Quinn'],rookie:['Tomi Rasila'],specialist:['Ingrid Sæter','Luis Prado','Didier Caron']
+  hothead:['Paddy Quinn'],rookie:['Tomi Rasila'],specialist:['Ingrid Sæter','Luis Prado','Didier Caron'],
+  nightowl:['Olli Haapala'],rainmaster:['Siobhán Doyle'],tactician:['Klaus Wendt'],privateer:['Rui Mendonça'],
+  sprinter:['Yannick Fauré'],showman:['Dino Ferraresi'],grinder:['Bert van Loon'],iceman:['Mikael Strand'],mechanic:['Jan Novák']
 };
 const SPEC_SURF=[2,1,0];
+// Each field draws its crews from a pool, so the line-up changes with the rally but a replay keeps the same field.
 const ROSTERS={
-  club:{name:'Club',about:'5 crews, mostly forgiving',list:[['rookie',0],['banker',0],['veteran',0],['hothead',0],['specialist',1]]},
-  national:{name:'National',about:'7 crews, every personality',list:[['professor',0],['banker',0],['gambler',0],['veteran',0],['hothead',0],['rookie',0],['specialist',1]]},
-  world:{name:'World',about:'9 factory crews: +1 Courage and +1 Luck',factory:true,list:[['professor',0],['professor',1],['gambler',0],['veteran',0],['hothead',0],['banker',0],['specialist',0],['specialist',1],['specialist',2]]}
+  club:{name:'Club',about:'6 crews, mostly forgiving',size:6,must:[],pool:['rookie','banker','veteran','privateer','grinder','sprinter','specialist','nightowl','rainmaster']},
+  national:{name:'National',about:'9 crews from every style',size:9,must:['professor'],pool:Object.keys(E.PERSONAS)},
+  world:{name:'World',about:'12 factory crews: +1 Courage and +1 Luck',size:12,factory:true,must:['professor','iceman','tactician','gambler'],pool:Object.keys(E.PERSONAS)}
 };
 function soloStore(){try{return JSON.parse(store.get('dw-solo')||'null')||{results:[],championship:null};}catch(e){return {results:[],championship:null};}}
 function makeBots(seed,event,diff){
   const ro=ROSTERS[diff],cfg=ro.factory?{courage:E.DEF.courage+1,luck:E.DEF.luck+1}:null;
-  return ro.list.map(([p,k],i)=>{let a=(E.hashStr?0:0)+((seed.length*977+i*7919)>>>0)+[...seed].reduce((x,c)=>x*31+c.charCodeAt(0)>>>0,0);
-    const rng=()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};
-    return {persona:p,name:BOTS[p][k],surface:p==='specialist'?SPEC_SURF[k]:null,rng,lastDw:0,g:E.createGame(seed,cfg,event,{fate:'bot'+i+p})};});
+  let a=[...(seed+diff)].reduce((x,c)=>(Math.imul(x,31)+c.charCodeAt(0))>>>0,7);
+  const rng=()=>{a=(Math.imul(a,1664525)+1013904223)>>>0;return a/4294967296;};
+  // Pick personas, then a crew name for each (specialists get different surfaces).
+  const pool=ro.pool.filter(p=>!ro.must.includes(p)),picked=[...ro.must];
+  while(picked.length<ro.size){const all=[...pool];const p=all[Math.floor(rng()*all.length)];if(picked.filter(x=>x===p).length<BOTS[p].length)picked.push(p);}
+  const used={};
+  return picked.map((p,i)=>{const k=used[p]=(used[p]??-1)+1;let b=(a+i*7919)>>>0;const brng=()=>{b=(Math.imul(b,1664525)+1013904223)>>>0;return b/4294967296;};
+    return {persona:p,name:BOTS[p][k],surface:p==='specialist'?SPEC_SURF[k]:null,rng:brng,lastDw:0,g:E.createGame(seed,cfg,event,{fate:'bot'+i+p})};});
 }
 function advanceBots(g){
   const target=g.r.stageTimes.length,tot=x=>x.reduce((a,b)=>a+b,0);
-  const ctx=b=>{const k=b.g.r.stageTimes.length,all=g.solo.bots.map(x=>tot(x.g.r.stageTimes.slice(0,k))).concat([tot(g.r.stageTimes.slice(0,k))]);
-    const tilt=b.g.r.crew.dw>b.lastDw;b.lastDw=b.g.r.crew.dw;return {gap:tot(b.g.r.stageTimes)-Math.min(...all),tilt};};
+  const ctx=b=>{const k=b.g.r.stageTimes.length,all=g.solo.bots.map(x=>tot(x.g.r.stageTimes.slice(0,k))).concat([tot(g.r.stageTimes.slice(0,k))]).sort((x,y)=>x-y);
+    const me=tot(b.g.r.stageTimes),pos=all.indexOf(me)+1,tilt=b.g.r.crew.dw>b.lastDw;b.lastDw=b.g.r.crew.dw;
+    return {gap:me-all[0],pos,ahead:pos>1?me-all[pos-2]:99,behind:pos<all.length?all[pos]-me:99,tilt};};
   g.solo.bots.forEach(b=>E.advanceBot(b,target,ctx));
 }
 window.startSolo=(again)=>{
@@ -555,7 +567,7 @@ function home(){
   const preview=E.createGame(EVENT.seed,null,EVENT),r=preview.r,sub=store.get('dw-sub-'+WEEK);
   const legs=r.legs,nights=Object.keys(r.night).filter(k=>r.night[k]).length;
   let h='<div class="hero"><div class="panel week"><h2>'+(EVENT.name?esc(EVENT.name):'Rally of the week')+'</h2><p class="muted">'+(EVENT.name?'Rally of the week, ':'Week ')+WEEK+'. Everyone drives this same rally on the official rules. Practise it as often as you like, then submit one run.</p>'+(getHist(WEEK)?'<p class="sent" style="margin:0">Your best this week: '+getHist(WEEK).best+' over '+getHist(WEEK).runs+' run'+(getHist(WEEK).runs>1?'s':'')+'.</p>':'');
-  h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div>'+(r.rally?'<div><small>Country</small><b>'+r.rally.name+'</b></div>':'')+'<div><small>Corners</small><b>'+r.deckName+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.WEATHER[r.weather]+'</b></div></div>';
+  h+='<div class="facts"><div><small>Stages</small><b>'+r.stages+'</b></div><div><small>Legs</small><b>'+legs+'</b></div><div><small>Surface</small><b>'+E.PROFILES[r.profile]+'</b></div>'+(r.rally?'<div><small>Country</small><b>'+r.rally.name+'</b></div>':'')+'<div><small>Corners</small><b>'+r.deckName+'</b></div><div><small>Dark stages</small><b>'+nights+'</b></div><div><small>Weather at start</small><b>'+E.wxName(r,r.weather)+'</b></div></div>';
   if(r.rally)h+='<p style="margin:0 0 12px"><b>'+r.rally.place+'.</b> <span class="muted">'+r.rally.rule+'</span></p>';
   h+=strip(r,null);
   h+='<div class="row" style="margin-top:16px"><button class="btn go" onclick="startWeekly()">Drive this week\'s rally</button></div>'+(sub?'<p class="sent" style="margin:10px 0 0">You submitted '+esc(sub)+'. Further runs are practice.</p>':'')+'</div>';
@@ -629,7 +641,7 @@ function render(){
   {const md=(l,v,cl)=>'<div class="'+(cl||'')+'"><small>'+l+'</small><b>'+v+'</b></div>';
    const tm=c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0);
    h+='<div class="a-mini minidash"><div class="mrow">'+md('Time',tm)+md('Stamina',c.st,c.st<=0?'out':'')+md('Courage',c.co,c.co<=0?'out':'')+md('Luck',c.lu,c.lu<=0?'out':'')+md('Damage',c.dmg+'/'+CFG.dmgMax,c.dmg>=CFG.dmgNoFlat?'out':c.dmg>=CFG.dmgLoose?'hot':'')+'</div>'
-     +'<div class="cond2"><span>'+wxIcon(r.weather)+'<b>'+E.WEATHER[r.weather]+'</b></span><span>Track <b>'+E.TRACKC[r.track]+'</b></span><span>Tyres <b>'+E.TYRES[c.tyre]+'</b></span></div></div>';}
+     +'<div class="cond2"><span>'+wxIcon(r.weather,r.winter)+'<b>'+E.wxName(r,r.weather)+'</b></span><span>Track <b>'+E.TRACKC[r.track]+'</b></span><span>Tyres <b>'+E.TYRES[c.tyre]+'</b></span></div></div>';}
   // Dash
   h+='<div class="a-dash panel"><div class="clock"><span>'+(G.solo?'Solo, '+ROSTERS[G.solo.diff].name+(G.r.rally?', '+G.r.rally.name:''):G.ranked?(EVENT.name?esc(EVENT.name):'Weekly rally')+', '+G.week:'Free play, seed '+esc(G.seed))+'</span></div><div class="clock" style="margin-top:4px"><b>'+(c.time+(G.phase==='choose'?Math.max(0,c.stageTime):0))+'</b><span>time lost</span></div>';
   h+='<div class="gauges">'+gauge('Stamina',c.st,CFG.stamina)+gauge('Courage',c.co,CFG.courage)+gauge('Luck',c.lu,CFG.luck)+dmgGauge(c,CFG)+'</div>';
@@ -641,8 +653,8 @@ function render(){
       if(i===1)h+='<div class="into">into</div>';
       h+='<div class="call">'+tulip(cd,tier===3?'#fff':'#1b1500')+'<div><div class="say">'+sayCard(cd)+'</div>'+(cd.mods.length||cd.ice?'<div class="chips">'+(cd.ice?'<span class="chip">Sheet ice<small>no grip without Snow tyres</small></span>':'')+cd.mods.map(modChip).join('')+'</div>':'<div class="plain">No modifier</div>')+'</div></div>';
     });
-    const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],ice=G.ev.some(cd=>cd.ice),gr=ice&&c.tyre!==3?2:E.grip(c.tyre,su,E.isWet(r.weather));
-    h+='</div><div class="cond"><p>'+E.SURF[su]+(ice?', sheet ice':E.isWet(r.weather)?', wet':', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
+    const sp=r.surf[r.stage-1],su=r.left>r.len/2?sp[0]:sp[1],ice=G.ev.some(cd=>cd.ice),gr=ice&&c.tyre!==3?2:E.grip(c.tyre,su,E.isWet(r.weather),r.winter);
+    h+='</div><div class="cond"><p>'+E.SURF[su]+(ice?', sheet ice':E.isWet(r.weather)?(r.winter&&su!==2?', under snow':', wet'):', dry')+' on '+E.TYRES[c.tyre]+' tyres: '+(gr===0?'good grip.':gr===1?'<span class="warn">poor grip, +1 time.</span>':'<span class="warn">no grip, +2 time and +1 Courage unless Safe.</span>')+'</p>';
     if(c.dmg>=CFG.dmgLoose)h+='<p><span class="warn">Damaged car ('+c.dmg+'): +1 time per card'+(c.dmg>=CFG.dmgNoFlat?', no Flat Out':'')+'.</span></p>';
     if(r.night[r.stage])h+='<p>'+(r.night[r.stage]==='dawn'?'Dawn':'Night')+' stage: jumps, crests and blind corners cost +1 time on Safe, or +1 Courage.</p>';
     if(G.ev.length>1)h+='<p>Linked cards take the same pace. The second costs +1 Courage unless Safe.</p>';
@@ -651,7 +663,7 @@ function render(){
     h+=(fz?'<p class="forced">'+fz+': every pace is driven as Safe'+(c.st<=0?', with +1 time per card':'')+'.</p>':'')+'<div class="row" style="margin-top:6px"><button class="btn" onclick="quit()">Abandon rally</button></div></div>';
   }else if(G.phase==='tyres'){
     const up=E.upcoming(r);
-    h+='<div class="a-note panel"><h2>'+(r.stage===0?'Choose your starting tyres':r.svc[r.stage]==='long'?'Long service':'Service')+'</h2>'+(r.stage>0?'<p class="muted">Stage '+r.stage+' cost '+r.stageTimes[r.stageTimes.length-1]+' time. '+(r.svc[r.stage]==='long'?'The crew rests and the car is fully repaired.':'Stamina is restored and the mechanics fixed up to '+CFG.dmgShortRepair+' Damage.')+'</p>':'')+'<p>These tyres stay on until the next service: '+up.map(k=>'stage '+k+' ('+E.surfLabel(r.surf[k-1]).toLowerCase()+(r.night[k]?', '+r.night[k]:'')+')').join(', ')+'. It\'s '+E.WEATHER[r.weather].toLowerCase()+' now, and the weather can shift one step each stage.</p>';
+    h+='<div class="a-note panel"><h2>'+(r.stage===0?'Choose your starting tyres':r.svc[r.stage]==='long'?'Long service':'Service')+'</h2>'+(r.stage>0?'<p class="muted">Stage '+r.stage+' cost '+r.stageTimes[r.stageTimes.length-1]+' time. '+(r.svc[r.stage]==='long'?'The crew rests and the car is fully repaired.':'Stamina is restored and the mechanics fixed up to '+CFG.dmgShortRepair+' Damage.')+'</p>':'')+'<p>These tyres stay on until the next service: '+up.map(k=>'stage '+k+' ('+E.surfLabel(r.surf[k-1]).toLowerCase()+(r.night[k]?', '+r.night[k]:'')+')').join(', ')+'. It\'s '+E.wxName(r,r.weather).toLowerCase()+' now, and the weather can shift one step each stage.</p>';
     h+='<div class="choices">';
     E.TYRES.forEach((n,ty)=>{const g=E.tyreForecast(r,ty);h+='<button class="pace" onclick="pickT('+ty+')"><b><kbd>'+(ty+1)+'</kbd>'+n+'</b><small>'+(g[0]?g[0]+' good':'')+(g[1]?(g[0]?', ':'')+g[1]+' poor':'')+(g[2]?(g[0]||g[1]?', ':'')+g[2]+' no grip':'')+'</small></button>';});
     h+='</div><p class="muted" style="margin:10px 0 0">Grip counts are half-stages, assuming today\'s weather holds. Gravel tyres are the safe bet: poor away from gravel, never hopeless.</p>'+(r.stage>0?standings(G)+fixBox(c,r,CFG):'')+stageMaps(G)+'</div>';

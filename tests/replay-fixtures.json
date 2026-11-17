@@ -1,5 +1,5 @@
 {
- "version": "0.6",
+ "version": "0.7",
  "cases": [
   {
    "seed": "FIX-A",
@@ -23,14 +23,14 @@
     "rally": "monte"
    },
    "moves": "1cfscrsccfscc3sccfccfsccf0ccfsrfscfsccfsc",
-   "time": 181,
+   "time": 184,
    "stages": [
-    17,
-    39,
-    1,
-    16,
     19,
-    17,
+    44,
+    0,
+    12,
+    19,
+    18,
     72
    ]
   },
