@@ -288,9 +288,9 @@ function applyEvent(r,cards,pace,dry){
     }
     // Breather taken Safe: +1 Stamina; two in a row also +1 Courage (limited per stage).
     if(p==='safe'&&!c.dead&&!c.retired&&isBreather(r,card,cards.length>1)){
-      if((c.brSt||0)<CFG.brStamMax&&c.st<CFG.stamina){c.st+=1;c.brSt=(c.brSt||0)+1;if(!dry)L.push({t:'Breather: +1 Stamina',k:'good'});}
+      if((c.brSt||0)<CFG.brStamMax&&c.st<CFG.stamina){c.st+=1;c.brSt=(c.brSt||0)+1;if(dry)c._brSt=(c._brSt||0)+1;if(!dry)L.push({t:'Breather: +1 Stamina',k:'good'});}
       c.brChain=(c.brChain||0)+1;
-      if(c.brChain>=2&&(c.brCo||0)<CFG.brCoMax&&c.co<CFG.courage){c.co+=1;c.brCo=(c.brCo||0)+1;c.brChain=0;if(!dry)L.push({t:'Settled: +1 Courage',k:'good'});}
+      if(c.brChain>=2&&(c.brCo||0)<CFG.brCoMax&&c.co<CFG.courage){c.co+=1;c.brCo=(c.brCo||0)+1;c.brChain=0;if(dry)c._brCo=(c._brCo||0)+1;if(!dry)L.push({t:'Settled: +1 Courage',k:'good'});}
     }else c.brChain=0;
     if(!dry)card.tl=t;
     T+=t;
@@ -448,13 +448,15 @@ export function preview(g,p,opts){
   const full=opts&&opts.full,f=g.r.crew.focus??FOCUS_MAX,ev=full?g.ev:believed(g.ev,f);
   const hidden=!full&&mask(g.ev,f).some(v=>v.faceDown||!v.gradeKnown||v.mods.some(m=>!m.known)||v.extraQ);
   const pv=applyEvent(g.r,ev,p,true),c0=g.r.crew,c=pv.crew,bits=[(pv.T<0?'−'+(-pv.T):'+'+pv.T)+' time'];
-  const ds=c.st-c0.st,dc=c.co-c0.co,dl=c.lu-c0.lu;
+  // Breather gains are listed on their own, so the button says why Safe pays back.
+  const bs=c._brSt||0,bc=c._brCo||0,ds=c.st-c0.st-bs,dc=c.co-c0.co-bc,dl=c.lu-c0.lu;
   if(ds)bits.push((ds>0?'+':'')+ds+' Stam');if(dc)bits.push((dc>0?'+':'')+dc+' Cour');if(dl)bits.push((dl>0?'+':'')+dl+' Luck');
+  if(bs)bits.push('Breather +'+bs+' Stam');if(bc)bits.push('Settled +'+bc+' Cour');
   if(p==='flat'&&!pv.forced)bits.push('+ Luck card');
   if(p==='committed'&&!pv.forced&&CFG.comRisk>0&&g.ev.some(cd=>cd.mods.some(m=>m.rough||m.blind)))bits.push(CFG.comRisk+'-in-6 Luck card');
   if(pv.risk)bits.push('⚠ Death Wish');
   if(hidden)bits.push('+ ?');
-  return {hidden,txt:bits.join(' · '),risk:pv.risk,forced:pv.forced,T:pv.T,ds,dc,dl};
+  return {hidden,breather:bs+bc>0,txt:bits.join(' · '),risk:pv.risk,forced:pv.forced,T:pv.T,ds,dc,dl};
 }
 
 // Every stage's corners, in order. The roads never depend on the crew's choices, so this can be shown before driving.

@@ -256,7 +256,7 @@ body.night .note:not(.d4){background-image:linear-gradient(to top,rgba(255,255,2
 /* Pace choices */
 .paces{display:grid;gap:8px}
 .pace{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;text-align:left;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--road)}
-.pace b{font:700 26px/1 var(--cond)}
+.pace b{font:700 26px/1 var(--cond);white-space:nowrap}
 .pace small{color:var(--dust);text-align:right;font-size:14px}
 .pace:hover{background:#2c3742}
 .pace.p-committed{box-shadow:inset 4px 0 0 var(--lamp)}
@@ -352,11 +352,11 @@ tr.me td{color:var(--lamp)}
 </main>
 <footer id="ver" style="max-width:1080px;margin:0 auto;padding:0 20px 28px;color:var(--dust);font-size:13px"></footer>
 <script type="module">
-import * as E from './engine.js?v=cbfd659b';
-import {API_URL} from './site-config.js?v=cbfd659b';
+import * as E from './engine.js?v=dd211f6l';
+import {API_URL} from './site-config.js?v=dd211f6l';
 const $=id=>document.getElementById(id);
 // Updated with each release: date and short commit it was built from.
-const BUILD='2026-11-17.cbfd659';
+const BUILD='2026-11-19.dd211f6';
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const API=API_URL?API_URL.replace(/\/$/,''):'';
@@ -758,7 +758,7 @@ function render(){
     h+='</div></div><div class="a-paces paces">';let fz=null;
     [['safe','Safe'],['committed','Committed'],['flat','Flat Out']].forEach(([k,n])=>{const pv=E.preview(G,k);if(pv.forced)fz=pv.forced;if(k==='flat')G.flatRisk=pv.risk;
       const hes=k==='flat'&&!pv.forced&&c.co<=2;
-      h+='<button class="pace p-'+k+(pv.risk?' risk':'')+(hes?' hesitant':'')+'" onclick="choose(\''+k+'\')"><b><kbd>'+({safe:1,committed:2,flat:3})[k]+'</kbd>'+n+'</b><small>'+pv.txt+'</small></button>';});
+      h+='<button class="pace p-'+k+(pv.risk?' risk':'')+(hes?' hesitant':'')+'" onclick="choose(\''+k+'\')"><b><kbd>'+({safe:1,committed:2,flat:3})[k]+'</kbd>'+n+'</b><small>'+pv.txt.replace(/(Breather \+\d Stam|Settled \+\d Cour)/g,'<span style="color:var(--clear);font-weight:600">$1</span>')+'</small></button>';});
     h+=(fz?'<p class="forced">'+fz+': every pace is driven as Safe'+(c.st<=0?', with +1 time per card':'')+'.</p>':'')+'<div class="row" style="margin-top:6px"><button class="btn" onclick="quit()">Abandon rally</button></div></div>';
   }else if(G.phase==='tyres'){
     const up=E.upcoming(r);
